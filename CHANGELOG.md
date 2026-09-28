@@ -10,6 +10,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 - `docs/resources/hindsight.md`: what Hindsight is, how this repo uses it, and the official doc/repo links.
 - `docs/architecture/call-memory-pipeline.md`: proposed input → processing → memory → output design (audio or
   transcript upload, Groq Whisper + LLM extraction, per-customer and company Hindsight banks, pre-call brief).
+  Extended to all channels: WhatsApp chat export, `.eml` email, CRM CSV, call recording URL (MCube); speaker
+  separation options; smart drop zone with preview/confirm and de-duplication; polling instead of websockets;
+  webhook path to production connectors.
 
 ## 2026-09-28 — Sales Memory Agent baseline
 
