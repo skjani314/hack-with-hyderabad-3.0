@@ -15,7 +15,7 @@ before Friday
 13/09/2026, 9:05 am - Dana Whitfield: Priya approved the questionnaire"""
 items, new, dup = parsing.parse_whatsapp(android, set(), set())
 assert [i.document_id for i in items] == ["WA-2026-09-12", "WA-2026-09-13"], items
-assert new == 3 and dup == 0 and items[0].turns[0].text.endswith("before Friday"), items[0].turns
+assert new == 3 and dup == 0 and items[0].turns[0].text == "Hi Kami, finance wants the cost case before Friday", items[0].turns
 assert items[1].turns[0].at == "09:05" and items[1].mode == "replace"
 again, new2, dup2 = parsing.parse_whatsapp(android + "\n13/09/2026, 10:00 am - Dana Whitfield: Call at 4?",
                                            {"WA-2026-09-13"}, {fp for i in items for fp in i.fingerprints})
@@ -152,5 +152,17 @@ assert llm._too_large([E("boom")]) is None
 lines = [f"[EM-0{i}] " + "word " * 40 for i in range(1, 4)]   # oldest → newest, ~50 tokens each
 kept = core._fit(lines[::-1], 60)[::-1]
 assert kept == [lines[-1]], kept
+
+# 18. A pasted chat that arrives indented and hard-wrapped (copied from a chat window or terminal) still parses
+pasted = """  22/09/2026, 10:05 - Kami Bicknell: Hi Michael, Sam, I've emailed the final quote: unit price, 3-year
+  support included, delivery by 6 October.
+  22/09/2026, 10:41 - Michael Torres: Received, thanks. I'll take it to the
+  board on Thursday the 25th.
+  23/09/2026, 18:20 - Dana Whitfield: Heads up Kami. Nexbyte dropped their price another 5%."""
+assert parsing.detect_channel(pasted) == "whatsapp"
+got, n, _ = parsing.parse_whatsapp(pasted, set(), set())
+assert [i.document_id for i in got] == ["WA-2026-09-22", "WA-2026-09-23"] and n == 3, got
+assert got[0].turns[0].text.endswith("3-year support included, delivery by 6 October."), got[0].turns[0].text
+assert parsing.detect_channel("22/09/2026 is when we met. Send the quote.") != "whatsapp"
 
 print("ok")

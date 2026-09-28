@@ -31,6 +31,10 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   prompt with `max_tokens=3000` was accepted under an 8,000 limit), so the brief now reads Groq's
   `Limit X, Requested Y`, cuts the memory context by the overshoot and retries once. The newest interactions are
   trimmed last and from the old end, so the latest call survives. The error message now shows both numbers.
+- **A pasted WhatsApp chat was saved as a note** (dated "now", one document). The paste arrived indented and
+  hard-wrapped, and the WhatsApp line pattern was anchored at column 0, so only 1 of 11 lines matched. Lines are now
+  stripped before matching, wrapped lines rejoin with a space, and two dated message lines are enough to detect a
+  chat. Acme's misfiled `NOTE-01` was re-stored as `WA-2026-09-22/23/24`.
 - **Call script was all "Opening".** Replaced by `call_plan` with one field per step, so the order is guaranteed by
   the strict schema.
 - **Interaction saved with the wrong date** (29 Sep instead of the 18th entered). The backend keeps a sent date

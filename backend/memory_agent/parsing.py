@@ -70,8 +70,11 @@ def detect_channel(text: str, file_name: str | None = None) -> Channel:
         return "crm"
     if ext in DOC_EXT:
         return "document"
-    lines = [ln for ln in _clean(text).split("\n")[:40] if ln.strip()]
-    if lines and sum(bool(WA_ANDROID.match(ln) or WA_IOS.match(ln)) for ln in lines) >= max(1, len(lines) // 3):
+    lines = [ln.strip() for ln in _clean(text).split("\n")[:40] if ln.strip()]
+    wa = sum(bool(WA_ANDROID.match(ln) or WA_IOS.match(ln)) for ln in lines)
+    # two dated message lines are enough: long messages wrap onto many lines, so a ratio would miss real chats.
+    # A single message counts only when it is most of a short paste.
+    if wa >= 2 or (wa == 1 and len(lines) <= 3):
         return "whatsapp"
     if len(EMAIL_HEADERS.findall(text[:2000])) >= 2:
         return "email"
@@ -121,12 +124,13 @@ def parse_whatsapp(text: str, existing_ids: set[str], known_fps: set[str]) -> tu
     """
     rows = []
     for line in _clean(text).split("\n"):
+        line = line.strip()  # pasted chats arrive indented or hard-wrapped; real exports don't, both must parse
         m = WA_ANDROID.match(line) or WA_IOS.match(line)
         if m:
             a, b, y, hh, mm, ampm, who, msg = m.groups()
             rows.append([int(a), int(b), int(y), int(hh), int(mm), (ampm or "").lower().replace(".", ""), who.strip(), msg])
-        elif rows and line.strip():
-            rows[-1][7] += "\n" + line  # continuation of the previous message
+        elif rows and line:
+            rows[-1][7] += " " + line  # continuation: a wrapped line or a multi-line message
     if not rows:
         raise InvalidInput("No WhatsApp messages found. Export the chat with 'Without media' and upload the .txt.")
     day_first = not any(r[1] > 12 for r in rows) or any(r[0] > 12 for r in rows)
