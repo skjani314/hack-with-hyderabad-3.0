@@ -847,6 +847,12 @@ export interface components {
         /** Report */
         Report: {
             /**
+             * Focus
+             * @description Which section best answers the request: status (what is open / where we stand), email (a draft to send), objection (how to answer pushback), stakeholders (who to win and how), call_prep (plan for a call), questions (what to ask), risks, or playbook (what worked elsewhere)
+             * @enum {string}
+             */
+            focus: "status" | "email" | "objection" | "stakeholders" | "call_prep" | "questions" | "risks" | "playbook";
+            /**
              * Answer
              * @description Direct answer to the salesperson's question, under 120 words
              */

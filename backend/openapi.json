@@ -2447,6 +2447,21 @@
    },
    "Report": {
     "properties": {
+     "focus": {
+      "type": "string",
+      "enum": [
+       "status",
+       "email",
+       "objection",
+       "stakeholders",
+       "call_prep",
+       "questions",
+       "risks",
+       "playbook"
+      ],
+      "title": "Focus",
+      "description": "Which section best answers the request: status (what is open / where we stand), email (a draft to send), objection (how to answer pushback), stakeholders (who to win and how), call_prep (plan for a call), questions (what to ask), risks, or playbook (what worked elsewhere)"
+     },
      "answer": {
       "type": "string",
       "title": "Answer",
@@ -2576,6 +2591,7 @@
     },
     "type": "object",
     "required": [
+     "focus",
      "answer",
      "summary",
      "deal_stage",

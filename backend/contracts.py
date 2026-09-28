@@ -285,8 +285,15 @@ class CallPlan(Strict):
     close: ScriptStep
 
 
+Focus = Literal["status", "email", "objection", "stakeholders", "call_prep", "questions", "risks", "playbook"]
+
+
 class ReportDraft(Strict):
     """What the LLM writes. The API response (`Report`) adds gate results and the memory trace."""
+    focus: Focus = Field(description="Which section best answers the request: status (what is open / where we stand), "
+                                     "email (a draft to send), objection (how to answer pushback), stakeholders (who to "
+                                     "win and how), call_prep (plan for a call), questions (what to ask), risks, or "
+                                     "playbook (what worked elsewhere)")
     answer: str = Field(description="Direct answer to the salesperson's question, under 120 words")
     summary: str = Field(description="Where the deal stands, 2 sentences")
     deal_stage: Literal["discovery", "evaluation", "negotiation", "closing", "won", "lost"]

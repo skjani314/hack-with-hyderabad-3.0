@@ -6,6 +6,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **The answer comes first.** Every brief says which section answers the question (`focus`: status, email, objection,
+  stakeholders, call_prep, questions, risks, playbook; clear wording like "draft … email" decides in code). The UI shows
+  the health bar, the direct answer and that section; everything else is under **More details**. An objection answer
+  shows the playbook lessons right below it. Saved briefs from before `focus` still open; ones from before the ordered
+  call plan say "ask again" instead of failing.
 - **Deal ledger** (`memory_agent/ledger.py`, MongoDB `ledgers`, `docs/architecture/deal-ledger.md`): each customer's
   current state — items with status, owner, due date and sources, and where each person stands — updated by one
   strict Groq call on every upload and rebuilt on demand (`POST /api/customers/{id}/ledger/rebuild`, *Rebuild* button).

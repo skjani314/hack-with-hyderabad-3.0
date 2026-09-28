@@ -199,7 +199,7 @@ assert [i.id for i in new.open_items()] == ["L-03", "L-02"] or {i.id for i in ne
 from contracts import ReportDraft
 def draft_with(text):
     step = {"say": text, "sources": []}
-    return ReportDraft(answer="a", summary="s", deal_stage="closing", deal_health="on_track", health_reason="r",
+    return ReportDraft(focus="status", answer="a", summary="s", deal_stage="closing", deal_health="on_track", health_reason="r",
                        what_to_ask=[], open_items=[], stakeholders=[], objections=[], risks=[], playbook_tips=[],
                        call_plan={k: step for k in ("opening", "recap", "discovery", "value", "objections", "close")},
                        next_steps=[], follow_up_email="")
@@ -217,5 +217,13 @@ dup = [LedgerItem(id="L-04", kind="commitment", text="Send completed hardware se
 lg._close_duplicates(dup)
 assert dup[1].status == "done" and dup[1].sources == ["CALL-02", "CALL-04"], dup[1]
 assert dup[2].status == "open"   # a different deliverable stays open
+
+# 22. Focus: clear wording decides in code, otherwise the model's choice stands
+assert core._focus("Draft a thank-you and kickoff email to Michael, Sam and Priya.", "status") == "email"
+assert core._focus("Omar says a competitor is 12% cheaper and wants a discount. How do I handle it?", "status") == "objection"
+assert core._focus("Is anything still open on Acme?", "call_prep") == "status"
+assert core._focus("Who are the stakeholders and how do I win each one?", "status") == "stakeholders"
+assert core._focus("I have a call with them tomorrow. What should I focus on?", "call_prep") == "call_prep"
+assert core._focus("Tell me something useful", "risks") == "risks"
 
 print("ok")

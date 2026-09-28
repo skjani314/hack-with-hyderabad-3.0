@@ -421,6 +421,21 @@ def _apply_ledger(rep: Report, current: Ledger | None, ctx: CustomerContext, cus
                                   f"{before - len(rep.stakeholders)} of our own from stakeholders"))
 
 
+FOCUS_RULES = [  # unambiguous wording decides in code; everything else keeps the model's choice
+    ("email", r"\b(draft|write|compose)\b.*\b(email|mail|message|note)\b|\bfollow-?up (email|mail)\b"),
+    ("objection", r"\b(discount|cheaper|too expensive|price objection|push ?back|objection)\b"),
+    ("stakeholders", r"\b(stakeholders?|who (do|should) i|decision makers?|champion)\b"),
+    ("call_prep", r"\b(prep(are)?|script|call plan|agenda)\b"),
+    ("status", r"\b(still open|what'?s open|anything open|where (do )?we stand|status|pending|outstanding)\b"),
+]
+
+
+def _focus(prompt: str, model_choice: str) -> str:
+    """Which section the UI shows first. The first matching rule wins; otherwise the model's choice."""
+    text = prompt.lower()
+    return next((f for f, rx in FOCUS_RULES if re.search(rx, text)), model_choice)
+
+
 PLACEHOLDER = re.compile(r"\b[XYZN]\s?%|\b[XYZN]x\b|\$\s?[XYZ]\b|\bTBD\b|\[(?:[^\]]*?)(?:amount|number|figure|value|%)\]"
                          r"|\b[XYZN] (?:percent|hours|days|weeks|months)\b")
 
@@ -527,6 +542,7 @@ async def generate_report(ctx: CustomerContext, prompt: str, history: list[str] 
     rep.memory_used = {"customer_facts": len(cust_lines), "company_lessons": len(comp_lines),
                        "conversations": len(rows), "latest": len(latest)}
     rep.dropped, rep.trace, rep.schema_version, rep.pieces = dropped, trace, SCHEMA_VERSION, used
+    rep.focus = _focus(prompt, rep.focus)  # type: ignore[assignment]
     return rep
 
 

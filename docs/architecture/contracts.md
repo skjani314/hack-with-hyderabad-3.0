@@ -332,3 +332,10 @@ on Vercel. Options:
 - API: `GET /api/customers/{id}/ledger`, `POST /api/customers/{id}/ledger/rebuild`. The backend loads and stores the
   ledger (MongoDB `ledgers`); the agent never touches MongoDB.
 - Design: [`deal-ledger.md`](./deal-ledger.md).
+
+### Focus (2026-09-29)
+
+`ReportDraft.focus` — which section answers the request (status · email · objection · stakeholders · call_prep ·
+questions · risks · playbook). The model chooses; `core._focus` overrides it for unambiguous wording. The UI renders
+that section first and the rest under "More details". Saved reports are read through `api_v2.stored_report`, which
+fills defaults for fields added later.

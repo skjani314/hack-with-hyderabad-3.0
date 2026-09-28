@@ -215,6 +215,51 @@ export default function ReportView({ request, pieces, onSource }: { request: Req
     catch { /* clipboard blocked: the text is still selectable */ }
   }
 
+  // Every section of the brief, keyed by the focus it answers. The one matching r.focus is shown first;
+  // the rest wait under "More details" so the screen answers the question that was asked.
+  const email = r.follow_up_email ? (
+    <div className="rounded-lg border border-slate-200 dark:border-slate-700">
+      <div className="flex items-center justify-between px-3 py-2">
+        <span className="text-xs text-slate-400">Draft · review before sending</span>
+        <Tip text="Copy the draft to your clipboard. Review it before sending."><button type="button" className="text-xs text-indigo-600 hover:underline" onClick={copy}>{copied ? 'Copied ✓' : 'Copy'}</button></Tip>
+      </div>
+      <p className="whitespace-pre-wrap px-3 pb-3 text-sm">{r.follow_up_email}</p>
+    </div>
+  ) : null
+  const sections: { key: string; title: string; help: string; show: boolean; body: ReactNode }[] = [
+    { key: 'status', title: 'Open items', help: 'Everything still owed, by whom and by when, sorted by due date. Each links to the message it comes from.',
+      show: r.open_items.length > 0, body: <OpenItems items={r.open_items} onSource={onSource} /> },
+    { key: 'email', title: 'Email draft', help: 'A follow-up email written from memory. It never claims anything is attached or approved unless memory says so.',
+      show: !!email, body: email },
+    { key: 'objection', title: 'Objections → what to say', help: 'Every objection raised so far, whether it is still open, and a suggested reply.',
+      show: r.objections.length > 0, body: <Objections items={r.objections} onSource={onSource} /> },
+    { key: 'stakeholders', title: 'Stakeholder map', help: 'Each person placed by where they stand on the deal. Hover a name for what they care about and how to win them.',
+      show: r.stakeholders.length > 0, body: <StakeholderMap people={r.stakeholders} onSource={onSource} /> },
+    { key: 'call_prep', title: 'Call plan', help: 'Your next call in six steps. Click a step (or hover it) to see what to say.',
+      show: true, body: <CallPlan plan={r.call_plan} onSource={onSource} /> },
+    { key: 'questions', title: 'What to ask', help: 'Questions that move the deal forward, based on what is still unknown or open.',
+      show: r.what_to_ask.length > 0, body: (
+        <ol className="grid gap-2 sm:grid-cols-2">{r.what_to_ask.map((x, k) => (
+          <li key={k} className="flex gap-2 rounded-lg border border-slate-200 p-2 dark:border-slate-700">
+            <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">{k + 1}</span>
+            <span>{x.text} <SourceChips ids={x.sources} onSource={onSource} /></span>
+          </li>
+        ))}</ol>) },
+    { key: 'risks', title: 'Risks', help: 'What could lose or delay the deal.', show: r.risks.length > 0,
+      body: <ul className="space-y-1.5">{r.risks.map((x, k) => <li key={k} className="rounded-md border-l-4 border-rose-400 bg-rose-50/50 px-2 py-1 dark:bg-rose-950/20">{x.text} <SourceChips ids={x.sources} onSource={onSource} /></li>)}</ul> },
+    { key: 'playbook', title: 'From the company playbook', help: 'Lessons learned with other customers (names removed) that apply here. Amber ids open the lesson.',
+      show: r.playbook_tips.length > 0, body: (
+        <ul className="grid gap-2 sm:grid-cols-2">{r.playbook_tips.map((x, k) => (
+          <li key={k} className="rounded-lg border border-amber-200 bg-amber-50/60 p-2 dark:border-amber-900 dark:bg-amber-950/20">💡 {x.text} <SourceChips ids={x.sources} onSource={onSource} /></li>
+        ))}</ul>) },
+    { key: 'next', title: 'Next steps', help: 'Concrete actions for you after reading this brief.', show: r.next_steps.length > 0,
+      body: <ul className="space-y-1">{r.next_steps.map((n, k) => <li key={k} className="flex gap-2"><span className="text-slate-400">☐</span>{n}</li>)}</ul> },
+  ]
+  const primary = sections.find(s => s.key === r.focus && s.show) ?? sections.find(s => s.show)
+  // the objection answer reads better with the playbook lessons behind it right below
+  const companion = r.focus === 'objection' ? sections.find(s => s.key === 'playbook' && s.show) : undefined
+  const rest = sections.filter(s => s.show && s !== primary && s !== companion)
+
   return (
     <div className="mt-4 border-t border-slate-200 pt-4 text-sm leading-snug dark:border-slate-800">
       <div className="mb-3 flex flex-wrap items-center gap-1.5 text-[11px] text-slate-500">
@@ -224,46 +269,19 @@ export default function ReportView({ request, pieces, onSource }: { request: Req
       </div>
       <DealPulse r={r} />
       <p className="mt-3 rounded-lg bg-indigo-50 p-3 text-indigo-950 dark:bg-indigo-950/40 dark:text-indigo-100">{r.answer}</p>
-      <MemoryBar r={r} />
-
-      <Section title="Open items" help="Everything still owed, by whom and by when, sorted by due date. Each links to the message it comes from." show={r.open_items.length > 0}>
-        <OpenItems items={r.open_items} onSource={onSource} />
-      </Section>
-      <Section title="Stakeholder map" help="Each person placed by where they stand on the deal. Hover a name for what they care about and how to win them." show={r.stakeholders.length > 0}>
-        <StakeholderMap people={r.stakeholders} onSource={onSource} />
-      </Section>
-      <Section title="Objections → what to say" help="Every objection raised so far, whether it is still open, and a suggested reply." show={r.objections.length > 0}>
-        <Objections items={r.objections} onSource={onSource} />
-      </Section>
-      <Section title="Call plan" help="Your next call in six steps. Click a step (or hover it) to see what to say." show={true}>
-        <CallPlan plan={r.call_plan} onSource={onSource} />
-      </Section>
-      <Section title="What to ask" help="Questions that move the deal forward, based on what is still unknown or open." show={r.what_to_ask.length > 0}>
-        <ol className="grid gap-2 sm:grid-cols-2">{r.what_to_ask.map((x, k) => (
-          <li key={k} className="flex gap-2 rounded-lg border border-slate-200 p-2 dark:border-slate-700">
-            <span className="flex size-5 shrink-0 items-center justify-center rounded-full bg-indigo-100 text-[10px] font-bold text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300">{k + 1}</span>
-            <span>{x.text} <SourceChips ids={x.sources} onSource={onSource} /></span>
-          </li>
-        ))}</ol>
-      </Section>
-      <Section title="Risks" help="What could lose or delay the deal." show={r.risks.length > 0}>
-        <ul className="space-y-1.5">{r.risks.map((x, k) => <li key={k} className="rounded-md border-l-4 border-rose-400 bg-rose-50/50 px-2 py-1 dark:bg-rose-950/20">{x.text} <SourceChips ids={x.sources} onSource={onSource} /></li>)}</ul>
-      </Section>
-      <Section title="From the company playbook" help="Lessons learned with other customers (names removed) that apply here. Amber ids open the lesson." show={r.playbook_tips.length > 0}>
-        <ul className="grid gap-2 sm:grid-cols-2">{r.playbook_tips.map((x, k) => (
-          <li key={k} className="rounded-lg border border-amber-200 bg-amber-50/60 p-2 dark:border-amber-900 dark:bg-amber-950/20">💡 {x.text} <SourceChips ids={x.sources} onSource={onSource} /></li>
-        ))}</ul>
-      </Section>
-      <Section title="Next steps" help="Concrete actions for you after reading this brief." show={r.next_steps.length > 0}>
-        <ul className="space-y-1">{r.next_steps.map((n, k) => <li key={k} className="flex gap-2"><span className="text-slate-400">☐</span>{n}</li>)}</ul>
-      </Section>
-      {r.follow_up_email && (
-        <details className="mt-5 rounded-lg border border-slate-200 dark:border-slate-700">
-          <summary className="flex cursor-pointer items-center justify-between px-3 py-2 text-xs font-semibold uppercase tracking-wider text-slate-400">
-            Follow-up email draft
-            <Tip text="Copy the draft to your clipboard. Review it before sending."><button type="button" className="text-xs normal-case text-indigo-600 hover:underline" onClick={e => { e.preventDefault(); copy() }}>{copied ? 'Copied ✓' : 'Copy'}</button></Tip>
+      {[primary, companion].filter(Boolean).map(s => (
+        <Section key={s!.key} title={s!.title} help={s!.help} show>{s!.body}</Section>
+      ))}
+      {rest.length > 0 && (
+        <details className="group/more mt-5 rounded-xl border border-slate-200 dark:border-slate-700">
+          <summary className="cursor-pointer select-none px-3 py-2 text-xs font-semibold text-slate-500 hover:text-slate-800 dark:hover:text-slate-200">
+            <span className="group-open/more:hidden">More details</span><span className="hidden group-open/more:inline">Less</span>
+            <span className="ml-2 font-normal text-slate-400">{rest.map(s => s.title).join(' · ')}</span>
           </summary>
-          <p className="whitespace-pre-wrap px-3 pb-3 text-xs">{r.follow_up_email}</p>
+          <div className="px-3 pb-3">
+            <MemoryBar r={r} />
+            {rest.map(s => <Section key={s.key} title={s.title} help={s.help} show>{s.body}</Section>)}
+          </div>
         </details>
       )}
       <MemoryTrace steps={r.trace} />

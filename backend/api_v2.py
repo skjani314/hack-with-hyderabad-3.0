@@ -128,7 +128,7 @@ async def ingest(body: IngestIn, ctx: Ctx, user: User):
     prior = None
     if body.request_id:
         r = await db.requests.find_one({"_id": body.request_id, "customer_id": ctx.customer_id})
-        prior = Report(**r["report"]) if r else None
+        prior = stored_report(r["report"]) if r else None
     job_id = uuid.uuid4().hex[:12]
     await db.jobs.insert_one({"_id": job_id, "customer_id": ctx.customer_id, "user_id": str(user["_id"]),
                               "status": "running", "stage": "extracting", "created_at": now()})
@@ -196,8 +196,26 @@ async def get_request(request_id: str, ctx: Ctx):
     r = await database().requests.find_one({"_id": request_id, "customer_id": ctx.customer_id})
     if not r:
         raise HTTPException(404, {"error": "not_found", "message": "No such request"})
+    report = stored_report(r["report"])
+    if report is None:
+        raise HTTPException(410, {"error": "outdated", "message": "This brief was made by an older version of the "
+                                                                   "app and can't be shown. Ask the question again."})
     return RequestOut(request_id=r["_id"], customer_id=r["customer_id"], prompt=r["prompt"],
-                      created_at=r["created_at"], report=Report(**r["report"]))
+                      created_at=r["created_at"], report=report)
+
+
+def stored_report(data: dict) -> Report | None:
+    """A saved brief, readable across schema changes: fields added later get safe defaults; a brief from before the
+    ordered call plan cannot be shown and returns None."""
+    d = dict(data)
+    if "call_plan" not in d:
+        return None
+    d.setdefault("focus", "call_prep")
+    d["objections"] = [{"ledger_id": None, **o} for o in d.get("objections", [])]
+    try:
+        return Report(**d)
+    except ValidationError:
+        return None
 
 
 # ---------- deal ledger ----------
