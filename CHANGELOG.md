@@ -7,6 +7,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 
 ### Added
 - `CHANGELOG.md` and a `docs/` folder for planning and design notes.
+- `docs/resources/hindsight.md`: what Hindsight is, how this repo uses it, and the official doc/repo links.
+- `docs/architecture/call-memory-pipeline.md`: proposed input → processing → memory → output design (audio or
+  transcript upload, Groq Whisper + LLM extraction, per-customer and company Hindsight banks, pre-call brief).
 
 ## 2026-09-28 — Sales Memory Agent baseline
 
