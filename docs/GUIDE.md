@@ -349,7 +349,163 @@ Record only generalised, reusable sales patterns by industry and buyer role. Nev
 5. **Log in as admin → Settings** → change the main prompt (e.g. "Always end with one question for the CFO") →
    ask again → the brief follows it.
 
-## 8. Limits and known issues (be honest in the write-up)
+## 8. Happy-path test script (step by step, from zero)
+
+**What this test proves, in the problem's own terms:** a salesperson should not have to re-read a customer's history
+before a call, and what one account teaches should help the next. So the test starts a **brand-new customer** with an
+empty memory and checks four things in order:
+
+1. **Day one, no history** — the brief is still useful, because it draws on the company playbook.
+2. **Memory builds up** — after an email and a call, the brief knows the pain, the people, the objections and the
+   deadlines, each linked to its source.
+3. **Current state stays current** — when a later chat says something was received or accepted, the deal ledger closes
+   it and briefs stop listing it as open.
+4. **The company learns** — the outcome, linked to the brief that advised it, becomes a playbook lesson marked
+   *confirmed by outcome*.
+
+**Before you start**
+- Log in as **Kami** (`kami@clarity.example`, password in [section 4](#4-logins)).
+- Use a **new customer id each run** (`initech-yourname`), because memory remembers everything and rejects a second
+  copy of the same text.
+- Paste the texts below **exactly as shown, lines starting at the left edge** (copy from GitHub's rendered page or the
+  raw file). Leave **Type** on *detect automatically* unless a step says otherwise.
+- Each step takes 10–40 seconds (Groq's free tier); if a message says Groq is busy, wait a minute and retry.
+
+### Step 0 — create the customer
+**Customers → New customer:** name `Initech Labs`, id `initech-yourname`, industry `technology` → **Create** → confirm.
+
+✅ **Check:** you land on the Initech page; "Memory: interactions" is empty; the Deal ledger says *Empty*.
+
+### Step 1 — a brief with an empty memory (the playbook helps from day one)
+Chips: **Discovery call** + **ROI for finance**. Ask:
+```text
+First call with Initech next week. How do I win this deal?
+```
+✅ **Check**
+- The answer says there is no customer history yet.
+- **More details → From the company playbook** lists lessons with **amber `INS-…` chips**, learned from Acme,
+  Brightline and Globex. Click one: the lesson opens and names **no** customer or person.
+
+### Step 2 — remember the first email
+**Add to memory → Paste text.** Happened on: **21 Sep 2026, 10:00**. Paste:
+```text
+From: Neha Kapoor <neha.kapoor@initech.example>
+To: Kami Bicknell <kami@clarity.example>
+Cc: Arjun Rao <arjun.rao@initech.example>
+Subject: Build servers for our CI pipeline
+Date: Mon, 21 Sep 2026 10:00:00 +0530
+
+Hi Kami,
+
+Our CI builds take 55 minutes and developers wait on them all day. We want builds under 15 minutes before our
+product release on 30 October. We are looking at 4 GTX Pro build servers.
+
+Arjun Rao, our finance head, has a quote from Nexbyte that is 10% cheaper, so price will come up. Our IT team will
+also need your security whitepaper before anything connects to our network.
+
+Can we do a call on Wednesday?
+
+Neha Kapoor
+CTO, Initech Labs
+```
+**Preview** → the type shows **Email**, the title is the subject, and the date is 21 Sep → **Remember**.
+
+✅ **Check:** the green box says *Remembered EM-01* and how many lessons went to the playbook. The Deal ledger panel
+now shows open items, for example the security whitepaper, with Neha and Arjun under "Where people stand".
+
+### Step 3 — remember the discovery call
+**Add to memory → Paste text**, **Type: Call**, Happened on **23 Sep 2026, 15:00**. Add participants: *Kami
+Bicknell · Account Executive · ours*, *Neha Kapoor · CTO · customer*, *Arjun Rao · Finance Head · customer*. Paste:
+```text
+Kami: Thanks for the time. What does success look like for you?
+Neha: CI builds under 15 minutes, live before our 30 October release.
+Arjun: And the numbers have to work. Nexbyte is 10% cheaper per server. I need a 3-year cost comparison against renting cloud build machines.
+Kami: I'll send the 3-year comparison by 25 September, using your real build hours.
+Neha: Our IT lead also needs the security whitepaper before any hardware connects.
+Kami: I'll send the whitepaper tomorrow, 24 September.
+Arjun: If the comparison holds up, I can take it to the CFO on 28 September.
+```
+**Preview** → each line is labelled Kami (ours) or Neha / Arjun (customer); fix any wrong side → **Remember**.
+
+Now ask, chips **Negotiation** + **Price objection**:
+```text
+Arjun says Nexbyte is 10% cheaper. What's still open and how do I handle the price?
+```
+✅ **Check**
+- **Shown first:** the objection answer — the 10% price gap, **open**, raised by Arjun, with a suggested reply — and
+  the playbook lessons right below it (bundle support instead of discounting, learned on other accounts).
+- **More details → Open items** has the whitepaper (due 24 Sep) and the 3-year comparison (due 25 Sep), owner Kami,
+  each citing **CALL-01**.
+- **Stakeholder map:** Neha and Arjun only — **Kami is not in it** (our own side is filtered out).
+- Click **CALL-01** on any line: the drawer shows the exact call text.
+- No "X%" or "[amount]" placeholders anywhere.
+
+### Step 4 — a WhatsApp chat that closes things (current state stays current)
+**Add to memory → Paste text** (type detects WhatsApp; each day becomes its own document). Paste:
+```text
+24/09/2026, 18:05 - Kami Bicknell: Neha, the security whitepaper is in your inbox.
+25/09/2026, 11:20 - Neha Kapoor: IT has reviewed the whitepaper and approved it. Thanks!
+25/09/2026, 16:40 - Kami Bicknell: Arjun, the 3-year comparison is sent. We can't cut the price, but 3-year support is included at no extra cost.
+26/09/2026, 10:15 - Arjun Rao: The comparison works, payback is 13 months. Support included instead of a discount is fine for us. Taking it to the CFO on the 28th.
+```
+**Preview** → three documents (`WA-2026-09-24`, `-25`, `-26`); set Neha and Arjun to **customer** if needed → tick
+**This follows the brief "…"** → **Remember**.
+
+Ask (**Follow-up** chip):
+```text
+Is anything still open? Where do we stand?
+```
+✅ **Check**
+- **Shown first:** Open items. The whitepaper and the 3-year comparison are **gone** from the list. What remains is
+  the CFO decision on 28 September.
+- **Deal ledger** (right): whitepaper and comparison under **Done / resolved**, the price objection **resolved**,
+  each citing a `WA-2026-09-…` document.
+- **Where people stand:** Neha and Arjun are supporters (or champions), not blockers.
+
+### Step 5 — a draft email (the answer shape follows the question)
+Ask:
+```text
+Draft a follow-up email to Neha and Arjun before the CFO meeting.
+```
+✅ **Check:** the **email draft is shown first** with a **Copy** button; everything else sits under *More details*.
+The email mentions the CFO meeting on 28 September and claims nothing that memory does not say (no "attached",
+no invented approvals).
+
+### Step 6 — the outcome (the company learns)
+**Add to memory → Paste text**, **Type: Outcome**, Happened on **28 Sep 2026, 18:00**, tick **This follows the brief**:
+```text
+Result: Won. The CFO approved 4 GTX Pro build servers with 3-year support included. What worked: including 3-year support instead of the 10% discount, and sending the security whitepaper before the price discussion.
+```
+✅ **Check**
+- The green box reports new lessons added to the company playbook.
+- **Deal ledger:** stage **won**.
+- **Company playbook** page → filter **what worked** → a new lesson marked **confirmed by outcome** that names no
+  customer or person.
+
+### Step 7 — the lesson helps another customer
+Open **Globex Systems**, chips **Negotiation** + **Price objection**, ask:
+```text
+Omar says a competitor is cheaper and wants a discount. How do I handle it?
+```
+✅ **Check:** the objection answer cites **amber `INS-…` lessons**, including support-instead-of-discount. That is
+the knowledge from Initech, Acme and Brightline reaching a different account.
+
+### Quick negative checks
+| Try | Expected |
+|---|---|
+| Log in with a wrong password | "Wrong email or password" |
+| As Kami, open `…/#/customer/brightline` in the address bar | "This customer is not assigned to you" |
+| Paste the Step 2 email again on Initech | "This email is already in memory." |
+| Paste the Step 4 chat again | "All … messages in this chat are already in memory." |
+| As Kami, open **Settings** | The prompt is read-only ("Only an admin can change…") |
+
+### If a check fails
+Note the customer id, the question and the time, and open **Agent memory work** under the brief: it lists what was
+recalled, whether the ledger was read, and any retry. Answers are written by an AI, so wording differs between runs;
+the checks above are about **which items are open or closed, who is on which side, and which sources are cited** —
+those should not change.
+
+## 9. Limits and known issues (be honest in the write-up)
 
 - **Groq free tier**: 8,000 tokens per minute and 200,000 tokens per day per model per key. The app rotates across
   several keys and three models and waits when Groq says "try again in N s", but a burst of questions can still make
@@ -365,13 +521,13 @@ Record only generalised, reusable sales patterns by industry and buyer role. Nev
 - **Live connectors** (MCube, WhatsApp Business, Gmail, CRM webhooks) are designed but not built; the POC uses manual
   upload. See `docs/architecture/call-memory-pipeline.md` §7.
 
-## 9. Cost
+## 10. Cost
 
 - Hindsight Cloud (promo credit $50): about $0.02–0.05 per remembered item; recall is cheap; storage is free for 30 days.
 - Groq: free tier.
 - Vercel and MongoDB Atlas: free tiers.
 
-## 10. For the judges' criteria
+## 11. For the judges' criteria
 
 | Criterion | Where it shows |
 |---|---|
@@ -381,7 +537,7 @@ Record only generalised, reusable sales patterns by industry and buyer role. Nev
 | **User experience** | The answer to your question first, the rest one click away; hover help on every control; preview-before-save; clickable sources |
 | **Real-world impact** | Replaces re-reading a customer's history before every call; carries what one salesperson learned to the whole team |
 
-## 11. Where to read more
+## 12. Where to read more
 
 | Doc | What |
 |---|---|

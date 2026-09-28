@@ -6,6 +6,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Guide §8: happy-path test script** — a new customer from zero through won, with exact texts to paste, what to
+  check after each step, negative checks, and what to do when a check fails.
 - **`docs/GUIDE.md`** — the complete guide for the submission writers: problem, what we built, how Hindsight is used,
   every screen, every prompt (generated from the code), demo script, limits, cost, and a map to the judging criteria.
   Demo passwords live in `docs/CREDENTIALS.md`, which is **gitignored** because the repo is public.
