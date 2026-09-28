@@ -6,7 +6,7 @@ from pathlib import Path
 from typing import Literal
 
 from fastapi import Depends, FastAPI, Header, HTTPException
-from fastapi.responses import FileResponse
+from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 import agent
@@ -17,6 +17,9 @@ SEED = json.loads((HERE.parent / "data" / "experiences.json").read_text())
 pending, learned = {}, []
 
 app = FastAPI(title="Machine Never Miss")
+# Frontend lives on another origin in production (Vercel). Comma-separated list in ALLOWED_ORIGINS.
+app.add_middleware(CORSMiddleware, allow_origins=os.getenv("ALLOWED_ORIGINS", "http://localhost:5173").split(","),
+                   allow_methods=["GET", "POST"], allow_headers=["Content-Type", "X-Demo-Key"])
 
 
 def demo_key(x_demo_key: str | None = Header(None)):
@@ -44,8 +47,8 @@ class Outcome(BaseModel):
 
 
 @app.get("/")
-def index():
-    return FileResponse(HERE / "static" / "index.html")
+def health():
+    return {"ok": True}
 
 
 @app.post("/api/analyze", dependencies=[Depends(demo_key)])

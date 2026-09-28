@@ -1,0 +1,5 @@
+{
+  "rewrites": [
+    { "source": "/api/:path*", "destination": "https://machine-never-miss.onrender.com/api/:path*" }
+  ]
+}

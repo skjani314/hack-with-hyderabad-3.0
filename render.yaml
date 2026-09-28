@@ -10,5 +10,7 @@ services:
         sync: false
       - key: DEMO_KEY
         sync: false
+      - key: ALLOWED_ORIGINS
+        sync: false
       - key: HINDSIGHT_BANK
         value: machine-never-miss

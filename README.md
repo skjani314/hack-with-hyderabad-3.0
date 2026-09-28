@@ -22,8 +22,16 @@ cd backend
 # put your key in backend/.env (HINDSIGHT_API_KEY=...)
 ../.venv/Scripts/python seed.py           # load 369 experiences into Hindsight (~$0.35, once)
 ../.venv/Scripts/python seed.py --check   # recall a known dangerous reading
-../.venv/Scripts/python -m uvicorn main:app --reload   # open http://localhost:8000
+../.venv/Scripts/python -m uvicorn main:app --reload   # API on http://localhost:8000
 ../.venv/Scripts/python test_agent.py     # decision logic check, no key needed
+```
+
+Frontend (React + Vite + TypeScript + Tailwind), in a second terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev        # open http://localhost:5173 (/api is proxied to :8000)
 ```
 
 `USE_REFLECT=0` in `.env` skips Hindsight reflect ($0.05/call) while developing.
@@ -36,6 +44,8 @@ cd backend
 4. **Explain**: Hindsight reflect writes the "why", citing case ids.
 5. **Learn**: the engineer records the outcome, it is retained, and the next similar reading uses it.
 
-## Deploy (Render, one service)
+## Deploy
 
-Push to GitHub → Render → New → Blueprint → pick this repo (`render.yaml`). Set `HINDSIGHT_API_KEY` and `DEMO_KEY` (a password so strangers can't spend your credits). The free tier sleeps: open the URL a minute before the demo.
+**Backend (Render):** New → Blueprint → pick this repo (`render.yaml`). Set `HINDSIGHT_API_KEY` and `DEMO_KEY` (a password so strangers can't spend your credits). The free tier sleeps: open it a minute before the demo.
+
+**Frontend (Vercel):** New Project → this repo → Root Directory `frontend` (Vite is auto-detected). `frontend/vercel.json` forwards `/api/*` to Render, so the browser only talks to Vercel and there is no CORS to configure. If your Render URL differs from `machine-never-miss.onrender.com`, change it in `vercel.json`.
