@@ -9,8 +9,7 @@ Deeper design notes are linked at the end.
 - **Live app:** https://frontend-one-liart-v1r1f1weeq.vercel.app
 - **API:** https://backend-two-green-16.vercel.app
 - **Code:** https://github.com/skjani314/hack-with-hyderabad-3.0
-- **Logins:** see [section 4](#4-logins). Passwords are in `docs/CREDENTIALS.md`, which is kept out of the public repo —
-  ask the team for it.
+- **Logins (with passwords):** see [section 4](#4-logins).
 
 ---
 
@@ -104,13 +103,16 @@ split between the two banks, the evidence gate, the deal ledger and the learning
 
 ## 4. Logins
 
-| Who | Email | Role | Sees |
-|---|---|---|---|
-| Kami Bicknell | `kami@clarity.example` | sales exec | Acme Corporation, Globex Systems |
-| Rahul Mehta | `rahul@clarity.example` | sales exec | Brightline Logistics |
-| Sales Manager | `admin@clarity.example` | admin | every customer + can edit **Settings** |
+> **Temporary, for the judges.** These logins open the live app; they will be removed and the password changed
+> after judging.
 
-**Passwords: `docs/CREDENTIALS.md`** (not in the public repo; ask the team). All three share one password.
+| Who | Email | Password | Role | Sees |
+|---|---|---|---|---|
+| Kami Bicknell | `kami@clarity.example` | `u0VNTWanCO42` | sales exec | Acme Corporation, Globex Systems |
+| Rahul Mehta | `rahul@clarity.example` | `u0VNTWanCO42` | sales exec | Brightline Logistics |
+| Sales Manager | `admin@clarity.example` | `u0VNTWanCO42` | admin | every customer + can edit **Settings** |
+
+Use **Kami** for the demo; use **admin** only to show Settings.
 A sales exec cannot open another exec's customer — the server checks every request.
 
 ### The demo customers

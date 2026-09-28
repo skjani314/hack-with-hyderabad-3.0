@@ -3,7 +3,7 @@
 **Remembers the customer so the salesperson doesn't have to.**
 
 > **Start here: [`docs/GUIDE.md`](docs/GUIDE.md)** — what the app does, how it uses Hindsight, how to use it, every prompt,
-> a demo script and the known limits. Demo logins are in `docs/CREDENTIALS.md` (kept out of this public repo; ask the team).
+> a demo script and the known limits. Demo logins are in section 4 of the guide.
 
 Sales conversations are scattered across calls, email, WhatsApp and the CRM. A sales executive logs in, picks a
 customer, adds what happened (a call recording, a transcript, an email, a WhatsApp export, a CRM export or a file),
