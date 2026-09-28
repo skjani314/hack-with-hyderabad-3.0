@@ -6,6 +6,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Guide §7: demo script on Brightline** (as Rahul) — exact texts, dates, questions and what to expect: memory
+  before anything new, an expansion chat with a volume-discount objection, handling it with playbook lessons, the
+  customer accepting (ledger closes it, playbook learns), and the admin's own prompt.
 - **Guide §8: happy-path test script on Globex** — a new chapter for the existing Globex deal (payment-terms objection,
   a new infrastructure stakeholder, closing chat, won outcome) and a cross-customer check on Acme, with exact texts to
   paste, what to check after each step, and negative checks. Runs once per environment (duplicates are rejected).

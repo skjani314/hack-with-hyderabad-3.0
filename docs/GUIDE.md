@@ -333,22 +333,96 @@ Record only generalised, reusable sales patterns by industry and buyer role. Nev
 
 ---
 
-## 7. Demo script (about 3 minutes)
+## 7. Demo script (about 5 minutes, on Brightline)
 
-1. **Log in as Kami → Globex** (a new customer, little memory). Pick **Negotiation** + **Price objection** and ask:
-   *"Omar says a competitor is 12% cheaper and wants a discount. How do I handle it?"*
-   → The objection answer comes first, backed by amber **INS-…** playbook lessons learned on Acme and Brightline
-   ("bundle support instead of discounting"). Click an amber chip to show the lesson with no names in it.
-2. **Acme** — ask *"Is anything still open? What do I need to do before delivery on 6 October?"*
-   → The deal ledger says **won**; only delivery-day items are open; the stakeholder map shows everyone as supporter
-   or champion. Click any grey chip to open the exact message behind a claim.
-3. **Add to memory** on Globex: paste a short WhatsApp chat or email where the customer accepts bundled support,
-   tick **This follows the brief**, and Remember → the green box shows lessons added; the **Company playbook** page
-   shows a new lesson **confirmed by outcome**.
-4. Ask the same Globex question again → the answer has moved on (the ledger closed the objection).
-5. **Log in as admin → Settings** → change the main prompt (e.g. "Always end with one question for the CFO") →
-   ask again → the brief follows it.
+The live demo uses **Brightline Logistics** so it does not collide with the test scenarios in [section 8](#8-happy-path-test-script-globex-step-by-step)
+(each text can be remembered only once). Log in as **Rahul** (`rahul@clarity.example`, password in
+[section 4](#4-logins)). Paste texts **exactly as shown**, lines starting at the left edge.
 
+**Where Brightline stands before the demo:** Rahul won 6 edge servers for 6 warehouses in September. Meera Iyer
+(Operations Head) liked the one-button reset in the pilot; Arjun Nair (CFO) accepted 3-year support bundled into the
+price instead of a 12% discount against Nexbyte.
+
+### Demo 1 — memory answers before anything new is added
+Open **Brightline Logistics**. Chips: **Renewal / upsell**. Ask:
+```text
+Where do we stand with Brightline, and what did it take to win them?
+```
+✅ **Expect**
+- Deal ledger / health: **won**.
+- The answer says the pilot proved the latency gain and that 3-year support was bundled instead of a discount.
+- Every line has a grey source chip (`CALL-01`, `WA-2026-08-20`, `EM-01`, `OUT-01` …). Click one to show the exact
+  message behind the claim.
+
+### Demo 2 — a new WhatsApp chat: an expansion and a new objection
+**Add to memory → Paste text** (type detects WhatsApp; each day becomes its own document). Paste:
+```text
+21/09/2026, 11:20 - Meera Iyer: Rahul, all 6 warehouses are live. Sorting latency is 0.4 seconds everywhere and we made the Diwali cut-offs.
+21/09/2026, 11:24 - Rahul Mehta: Great news, Meera. Thanks for the quick rollout.
+22/09/2026, 17:05 - Arjun Nair: We want the same setup in our 4 new warehouses next quarter. But for a repeat order I need 8% off per unit.
+22/09/2026, 17:12 - Rahul Mehta: Understood, Arjun. Let me check what I can do and come back to you this week.
+```
+**Preview** → two documents (`WA-2026-09-21`, `WA-2026-09-22`); set Meera and Arjun to **customer** if needed →
+**Remember**.
+
+✅ **Expect:** the green box says two WhatsApp documents were remembered; the **Deal ledger** now shows a new open
+item for the 4-warehouse expansion and the 8% discount request.
+
+### Demo 3 — handle the objection with what the company learned
+Chips: **Negotiation** + **Price objection**. Ask:
+```text
+Arjun wants 8% off for 4 more warehouses. How do I handle it?
+```
+✅ **Expect**
+- **Shown first:** the objection answer — Arjun's 8% volume discount, **open**, with a suggested reply.
+- Right below: **playbook lessons** with **amber `INS-…` chips** such as "offer bundled or extended support instead
+  of a discount", learned on Acme and Globex. Click one: the lesson names no customer or person.
+- **More details → Stakeholder map:** Meera as a champion; Arjun raising the objection; **Rahul not in it**.
+
+Keep this brief on screen — the next step links to it.
+
+### Demo 4 — the customer accepts (the ledger closes it, the playbook learns)
+**Add to memory → Paste text**, Type: **Email**, Happened on **25 Sep 2026, 15:00**. Paste:
+```text
+From: Arjun Nair <arjun.nair@brightline.example>
+To: Rahul Mehta <rahul@clarity.example>
+Cc: Meera Iyer <meera.iyer@brightline.example>
+Subject: Re: 4 new warehouses
+Date: Fri, 25 Sep 2026 15:00:00 +0530
+
+Rahul,
+
+Your offer works for us: the same unit price, with support extended from 3 to 5 years at no extra cost instead of the
+8% discount. The board approved the expansion this morning. I will send the PO for 4 units by 15 October.
+
+Arjun
+```
+**Preview** → type **Email**, date 25 Sep → tick **This follows the brief "Arjun wants 8% off…"** → **Remember**.
+
+✅ **Expect:** the green box reports lessons added to the company playbook.
+
+Now ask (chip **Follow-up**):
+```text
+Is anything still open with Brightline?
+```
+✅ **Expect**
+- **Shown first:** Open items — the **PO for 4 units by 15 October**. The 8% discount is **no longer open**.
+- **Deal ledger:** the discount objection under **Done / resolved**, citing `EM-02`.
+- **Company playbook** page → filter **what worked** → a new lesson about extended support instead of a volume
+  discount, marked **confirmed by outcome**.
+
+### Demo 5 — the organisation's own prompt (admin)
+**Log out → log in as admin** (`admin@clarity.example`) → **Settings**. At the end of the main prompt add this line →
+**Save**:
+```text
+- End every answer with one question the salesperson should ask the customer's CFO.
+```
+Open **Brightline** (admin sees every customer) and ask:
+```text
+What should I focus on in my next call with Brightline?
+```
+✅ **Expect:** the answer ends with a question for the CFO. Then **Settings → Reset to default** so the next person
+starts clean.
 ## 8. Happy-path test script (Globex, step by step)
 
 **What this test proves, in the problem's own terms:** a salesperson should not have to re-read a customer's history
