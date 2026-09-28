@@ -5,7 +5,12 @@ import {
   type Preview, type Profile, type PromptPiece, type RequestOut, type RequestRow,
 } from './api'
 import ReportView from './ReportView'
-import { CHANNEL, ChannelTag, ErrorText, MemoryTrace, Panel, SourceChips, errMsg, ghost, input, pill, primary } from './ui'
+import { CHANNEL, ChannelTag, ErrorText, MemoryTrace, Panel, SourceChips, Tip, errMsg, ghost, input, pill, primary } from './ui'
+
+/** yyyy-mm-dd of an ISO time in the viewer's timezone (what a date input shows). */
+const localDay = (iso: string) => { const d = new Date(iso); return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}` }
+/** Same local time of day, new date. */
+const withDay = (iso: string, day: string) => { const d = new Date(iso); const [y, m, dd] = day.split('-').map(Number); d.setFullYear(y, m - 1, dd); return d.toISOString() }
 
 export default function CustomerPage({ id }: { id: string }) {
   const [detail, setDetail] = useState<CustomerDetail | null>(null)
@@ -117,7 +122,8 @@ function AddToMemory({ customerId, lastRequest, onSaved }: { customerId: string;
   const [url, setUrl] = useState('')
   const [channel, setChannel] = useState<Channel | ''>('')
   const [title, setTitle] = useState('')
-  const [date, setDate] = useState('')
+  const [day, setDay] = useState('')         // yyyy-mm-dd; empty = now
+  const [time, setTime] = useState('10:00')
   const [people, setPeople] = useState<Participant[]>([])
   const [linkBrief, setLinkBrief] = useState(true)
   const [preview, setPreview] = useState<Preview | null>(null)
@@ -132,7 +138,7 @@ function AddToMemory({ customerId, lastRequest, onSaved }: { customerId: string;
       setPreview(await previewInteraction(customerId, {
         text: mode === 'text' ? text : undefined, file: mode === 'file' ? file ?? undefined : undefined,
         recordingUrl: mode === 'url' ? url : undefined, channel, title,
-        occurredAt: date ? new Date(date).toISOString() : undefined, participants: people.filter(p => p.name.trim()),
+        occurredAt: day ? new Date(`${day}T${time || '10:00'}`).toISOString() : undefined, participants: people.filter(p => p.name.trim()),
       }))
     } catch (err) { setError(errMsg(err)) } finally { setBusy('') }
   }
@@ -155,8 +161,10 @@ function AddToMemory({ customerId, lastRequest, onSaved }: { customerId: string;
       {!preview ? (
         <form className="space-y-2" onSubmit={runPreview}>
           <div className="flex gap-1.5">
-            {([['text', 'Paste text'], ['file', 'Upload file'], ['url', 'Recording URL']] as const).map(([m, label]) => (
-              <button key={m} type="button" className={pill(mode === m)} onClick={() => setMode(m)}>{label}</button>
+            {([['text', 'Paste text', 'Paste a call transcript (Name: words), an email with its headers, a WhatsApp chat or notes.'],
+              ['file', 'Upload file', 'Call audio (MP3), .eml email, WhatsApp "Export chat" .txt, CRM .csv, or PDF / DOCX / XLSX. Up to 4 MB.'],
+              ['url', 'Recording URL', 'A link to a call recording (e.g. from MCube). Groq downloads and transcribes it, so long calls work.']] as const).map(([m, label, help]) => (
+              <Tip key={m} text={help}><button type="button" className={pill(mode === m)} onClick={() => setMode(m)}>{label}</button></Tip>
             ))}
           </div>
           {mode === 'text' && <textarea className={`${input} min-h-28`} required minLength={5} value={text} onChange={e => setText(e.target.value)}
@@ -171,16 +179,33 @@ function AddToMemory({ customerId, lastRequest, onSaved }: { customerId: string;
             </label>
           )}
           {mode === 'url' && <input className={input} type="url" required placeholder="https://… recording URL (e.g. from MCube)" value={url} onChange={e => setUrl(e.target.value)} />}
-          <div className="grid grid-cols-2 gap-2">
+          <Tip className="w-full" text="What kind of interaction this is. Leave on automatic and it is detected from the file or text; you can still change it." wide>
             <select className={input} value={channel} onChange={e => setChannel(e.target.value as Channel | '')}>
               <option value="">Type: detect automatically</option>
               {CHANNELS.map(c => <option key={c} value={c}>{CHANNEL[c].label}</option>)}
             </select>
-            <input className={input} type="datetime-local" value={date} onChange={e => setDate(e.target.value)} title="When it happened (default: now)" />
+          </Tip>
+          <div className="rounded-lg border border-slate-200 p-2 dark:border-slate-700">
+            <div className="mb-1 flex items-center justify-between text-xs">
+              <span className="font-medium text-slate-600 dark:text-slate-300">Happened on</span>
+              <span className={day ? 'font-semibold text-indigo-600 dark:text-indigo-400' : 'text-amber-600'}>
+                {day ? new Date(`${day}T${time || '10:00'}`).toLocaleString(undefined, { day: 'numeric', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })
+                  : 'now (set a date for a past call)'}
+              </span>
+            </div>
+            <div className="flex gap-2">
+              <Tip className="flex-1" text="The day the call, email or chat happened. Briefs trust the newest interaction, so a wrong date changes the advice." wide>
+                <input className={input} type="date" value={day} onChange={e => setDay(e.target.value)} max={new Date().toISOString().slice(0, 10)} />
+              </Tip>
+              <Tip text="Time of day (optional)."><input className={`${input} w-28`} type="time" value={time} onChange={e => setTime(e.target.value)} /></Tip>
+              {day && <button type="button" className="text-xs text-slate-400 hover:text-rose-600" onClick={() => setDay('')}>clear</button>}
+            </div>
           </div>
           <input className={input} placeholder="Title (optional), e.g. Pricing call with finance" value={title} onChange={e => setTitle(e.target.value)} />
           <People people={people} setPeople={setPeople} />
-          <button className={`${primary} w-full`} disabled={!!busy}>{busy || 'Preview'}</button>
+          <Tip className="w-full" text="Reads the input (and transcribes audio) and shows what will be remembered, so you can fix speakers, names and the date. Nothing is saved yet." wide>
+            <button className={`${primary} w-full`} disabled={!!busy}>{busy || 'Preview'}</button>
+          </Tip>
         </form>
       ) : (
         <div className="space-y-3">
@@ -191,8 +216,15 @@ function AddToMemory({ customerId, lastRequest, onSaved }: { customerId: string;
               <div className="mb-2 flex items-center gap-2 text-xs">
                 <ChannelTag channel={it.channel} /><span className="font-mono">{it.document_id}</span>
                 {it.mode === 'append' && <span className="text-slate-400">(adds to existing)</span>}
-                <span className="ml-auto text-slate-400">{it.occurred_at.slice(0, 10)}</span>
+                <Tip className="ml-auto" text="When this happened. Check it: briefs treat the newest interaction as the current state." wide>
+                  <input type="date" value={localDay(it.occurred_at)} max={localDay(new Date().toISOString())}
+                    onChange={e => e.target.value && edit(i, x => ({ ...x, occurred_at: withDay(x.occurred_at, e.target.value) }))}
+                    className={`rounded border px-1 ${localDay(it.occurred_at) === localDay(new Date().toISOString()) && it.channel !== 'whatsapp'
+                      ? 'border-amber-400 bg-amber-50 text-amber-800 dark:bg-amber-950/40 dark:text-amber-200' : 'border-slate-200 dark:border-slate-700 dark:bg-slate-900'}`} />
+                </Tip>
               </div>
+              {localDay(it.occurred_at) === localDay(new Date().toISOString()) && it.channel !== 'whatsapp' &&
+                <p className="mb-2 text-[11px] text-amber-700 dark:text-amber-300">Dated today. If this happened earlier, change the date.</p>}
               <input className={`${input} mb-2`} value={it.title} onChange={e => edit(i, x => ({ ...x, title: e.target.value }))} />
               {it.turns?.length ? (
                 <div className="max-h-64 space-y-1 overflow-y-auto">
@@ -212,14 +244,18 @@ function AddToMemory({ customerId, lastRequest, onSaved }: { customerId: string;
             </div>
           ))}
           {lastRequest && (
-            <label className="flex items-center gap-2 text-xs text-slate-500">
-              <input type="checkbox" checked={linkBrief} onChange={e => setLinkBrief(e.target.checked)} />
-              This follows the brief "{lastRequest.prompt.slice(0, 50)}". Compare advice with what happened (the playbook learns).
-            </label>
+            <Tip text="Links this interaction to the brief you asked for. The agent compares its advice with what actually happened and saves 'what worked' or 'what failed' to the company playbook." wide>
+              <label className="flex items-center gap-2 text-xs text-slate-500">
+                <input type="checkbox" checked={linkBrief} onChange={e => setLinkBrief(e.target.checked)} />
+                This follows the brief "{lastRequest.prompt.slice(0, 50)}". Compare advice with what happened (the playbook learns).
+              </label>
+            </Tip>
           )}
           <div className="flex gap-2">
-            <button className={ghost} onClick={() => setPreview(null)} disabled={!!busy}>Back</button>
-            <button className={`${primary} flex-1`} onClick={remember} disabled={!!busy}>{busy || `Remember ${preview.interactions.length > 1 ? `${preview.interactions.length} items` : 'this'}`}</button>
+            <Tip text="Go back and change the input. Nothing has been saved."><button className={ghost} onClick={() => setPreview(null)} disabled={!!busy}>Back</button></Tip>
+            <Tip className="flex-1" text="Saves it: the text goes to this customer's memory bank, and reusable lessons (with names removed) go to the company playbook." wide>
+              <button className={`${primary} w-full`} onClick={remember} disabled={!!busy}>{busy || `Remember ${preview.interactions.length > 1 ? `${preview.interactions.length} items` : 'this'}`}</button>
+            </Tip>
           </div>
         </div>
       )}
@@ -305,23 +341,35 @@ function Ask({ customerId, onSource, onReport, empty }: { customerId: string; on
   return (
     <Panel title="Ask the agent">
       <div className="space-y-2">
-        <div className="text-xs font-medium text-slate-500">Kind of call</div>
-        <div className="flex flex-wrap gap-1.5">{group('call_type').map(p => <button key={p.id} type="button" title={p.text} className={pill(picked.includes(p.id))} onClick={() => toggle(p)}>{p.label}</button>)}</div>
-        <div className="text-xs font-medium text-slate-500">Focus on</div>
-        <div className="flex flex-wrap gap-1.5">{group('focus').map(p => <button key={p.id} type="button" title={p.text} className={pill(picked.includes(p.id))} onClick={() => toggle(p)}>{p.label}</button>)}</div>
+        <div className="text-xs font-medium text-slate-500">Kind of call <span className="font-normal text-slate-400">(pick one)</span></div>
+        <div className="flex flex-wrap gap-1.5">{group('call_type').map(p => (
+          <Tip key={p.id} text={`Adds to the prompt: ${p.text}`} wide><button type="button" className={pill(picked.includes(p.id))} onClick={() => toggle(p)}>{p.label}</button></Tip>
+        ))}</div>
+        <div className="text-xs font-medium text-slate-500">Focus on <span className="font-normal text-slate-400">(any)</span></div>
+        <div className="flex flex-wrap gap-1.5">{group('focus').map(p => (
+          <Tip key={p.id} text={`Adds to the prompt: ${p.text}`} wide><button type="button" className={pill(picked.includes(p.id))} onClick={() => toggle(p)}>{p.label}</button></Tip>
+        ))}</div>
       </div>
       <form className="mt-3 space-y-2" onSubmit={e => send(prompt, false, e)}>
         <textarea className={`${input} min-h-20`} placeholder="Your question or situation, e.g. I'm calling their CFO tomorrow about the renewal. What should I ask?"
           value={prompt} onChange={e => setPrompt(e.target.value)} />
         <div className="flex flex-wrap gap-2">
-          <button className={primary} disabled={busy || !prompt.trim()}>{busy ? 'Recalling both memories and writing…' : 'Get my brief'}</button>
-          {current && <button type="button" className={ghost} disabled={busy || !prompt.trim()} onClick={() => send(prompt, true)}>Ask as follow-up</button>}
+          <Tip text="Starts fresh: the agent reads this customer's memory and the company playbook and answers only your question with the chips you picked." wide>
+            <button className={primary} disabled={busy || !prompt.trim()}>{busy ? 'Recalling both memories and writing…' : 'Get my brief'}</button>
+          </Tip>
+          {current && (
+            <Tip text="Continues from the brief on screen: the agent also sees your previous question and its answer, so 'that', 'those' or 'why?' make sense. Memory is still read fresh." wide>
+              <button type="button" className={ghost} disabled={busy || !prompt.trim()} onClick={() => send(prompt, true)}>Ask as follow-up</button>
+            </Tip>
+          )}
         </div>
       </form>
       {!current && (
         <div className="mt-3 flex flex-wrap gap-1.5">
-          {SUGGESTED.map(s => <button key={s} type="button" disabled={busy} onClick={() => send(s)}
-            className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 dark:bg-indigo-950/50 dark:text-indigo-300">{s}</button>)}
+          {SUGGESTED.map(s => (
+            <Tip key={s} text="Ask this now, with the chips you picked."><button type="button" disabled={busy} onClick={() => send(s)}
+              className="rounded-full bg-indigo-50 px-2.5 py-1 text-xs text-indigo-700 hover:bg-indigo-100 disabled:opacity-50 dark:bg-indigo-950/50 dark:text-indigo-300">{s}</button></Tip>
+          ))}
         </div>
       )}
       {empty && !current && <p className="mt-3 text-xs text-slate-400">No customer memory yet: the brief will come from the company playbook only.</p>}
@@ -347,21 +395,28 @@ function Ask({ customerId, onSource, onReport, empty }: { customerId: string; on
 
 // ---------- profile ----------
 
+/** Loads once, then only when asked: refreshing right after an upload cost an LLM call that collided with the
+ *  next brief on Groq's per-minute limit. */
 function ProfilePanel({ customerId, version, empty, onSource }: { customerId: string; version: number; empty: boolean; onSource: (id: string) => void }) {
   const [profile, setProfile] = useState<Profile | null>(null)
+  const [asked, setAsked] = useState(version)            // memory version the shown profile was requested for
   const [state, setState] = useState<{ v: number; error: string } | null>(null)
   useEffect(() => {
     if (empty) return
     let live = true
-    getProfile(customerId).then(p => { if (live) { setProfile(p); setState({ v: version, error: '' }) } })
-      .catch(e => live && setState({ v: version, error: errMsg(e) }))
+    getProfile(customerId).then(p => { if (live) { setProfile(p); setState({ v: asked, error: '' }) } })
+      .catch(e => live && setState({ v: asked, error: errMsg(e) }))
     return () => { live = false }
-  }, [customerId, version, empty])
-  const busy = !empty && state?.v !== version
+  }, [customerId, asked, empty])
+  const busy = !empty && state?.v !== asked
+  const stale = !empty && !busy && version !== asked
   const sections: [keyof Profile, string][] = [['pain_points', 'Pain points'], ['goals', 'Goals'], ['stakeholders', 'Stakeholders'],
     ['objections', 'Objections'], ['competitors', 'Competitors'], ['requirements', 'Requirements'], ['commitments', 'Commitments'], ['pricing', 'Pricing']]
   return (
-    <Panel title="What memory knows" action={busy && <span className="animate-pulse text-xs text-indigo-500">updating…</span>}>
+    <Panel title="What memory knows" action={busy ? <span className="animate-pulse text-xs text-indigo-500">updating…</span>
+      : stale ? <Tip text="New interactions were remembered since this profile was built. Refresh to rebuild it (one LLM call)." below>
+        <button className="rounded-full bg-amber-100 px-2.5 py-1 text-xs font-medium text-amber-800 hover:bg-amber-200 dark:bg-amber-950 dark:text-amber-200" onClick={() => setAsked(version)}>Memory changed · Refresh</button>
+      </Tip> : null}>
       {state?.error && <ErrorText error={state.error} />}
       {empty ? <p className="text-sm text-slate-400">Nothing remembered yet.</p> : !profile ? <p className="text-sm text-slate-400">Reading memory…</p> : (
         <div className="space-y-4">

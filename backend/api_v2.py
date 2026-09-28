@@ -245,6 +245,8 @@ async def save_settings(body: OrgSettingsIn, admin: dict = Depends(require_admin
 @router.post("/users/{user_id}/customers", response_model=UserOut)
 async def assign(user_id: str, body: AssignIn, admin: dict = Depends(require_admin)):
     from bson import ObjectId
+    if not ObjectId.is_valid(user_id):
+        raise HTTPException(404, {"error": "not_found", "message": "No such user"})
     db = database()
     await db.users.update_one({"_id": ObjectId(user_id)}, {"$set": {"customer_ids": body.customer_ids}})
     u = await db.users.find_one({"_id": ObjectId(user_id)})

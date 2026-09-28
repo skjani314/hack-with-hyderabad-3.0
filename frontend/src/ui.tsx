@@ -75,6 +75,19 @@ export function MemoryTrace({ steps }: { steps: TraceStep[] }) {
   )
 }
 
+/** Hover (or keyboard focus) help: says what a control does before it is clicked. */
+export function Tip({ text, children, wide = false, below = false, className = '' }: { text: string; children: ReactNode; wide?: boolean; below?: boolean; className?: string }) {
+  return (
+    <span className={`group/tip relative inline-flex ${className}`}>
+      {children}
+      <span role="tooltip"
+        className={`pointer-events-none absolute left-1/2 z-40 -translate-x-1/2 rounded-lg bg-slate-900 px-2.5 py-1.5 text-left text-xs font-normal normal-case leading-snug tracking-normal text-white opacity-0 shadow-lg transition-opacity delay-300 group-hover/tip:opacity-100 group-focus-within/tip:opacity-100 dark:bg-slate-100 dark:text-slate-900 ${wide ? 'w-72' : 'w-56'} ${below ? 'top-full mt-2' : 'bottom-full mb-2'}`}>
+        {text}
+      </span>
+    </span>
+  )
+}
+
 export function ErrorText({ error }: { error: string }) {
   return error ? <p className="rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">{error}</p> : null
 }

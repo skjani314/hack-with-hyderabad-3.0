@@ -310,3 +310,14 @@ on Vercel. Options:
 - **Agent A2 input** is `RawInput` (`contracts.py`); a single pasted WhatsApp message (not an export) is stored as
   plain text.
 - `openapi.json` is exported from the app and `frontend/src/api-types.ts` is generated from it (`npm run gen:api`).
+
+### Changes after the first release
+
+- `Report`: `call_script: list[ScriptLine]` → `call_plan: CallPlan` (one `ScriptStep` per step: opening, recap,
+  discovery, value, objections, close); `open_items: list[OpenItem]` (text, owner, due, status, sources; customer
+  sources only); new `deal_stage`, `deal_health`, `health_reason`, `stakeholders[].stance`; `memory_used.latest`.
+- Briefs read the summaries of the 3 newest interactions before recall results; recall uses
+  `include_source_facts` so observations cite their real documents.
+- New agent errors: `NotFound` (404), `LLMRequestTooLarge` (413). `LLMRateLimited` (429) is raised only after one
+  server-side wait of up to 25 s for Groq's `retry-after`.
+- `Interaction.document_id` is validated: `^(CALL|EM|WA|CRM|NOTE|FILE|OUT)-[A-Za-z0-9-]{1,60}$`.

@@ -321,6 +321,18 @@ export interface components {
             /** Participants */
             participants?: string | null;
         };
+        /**
+         * CallPlan
+         * @description The call in order. Each step is a separate field, so the order is guaranteed by the schema.
+         */
+        CallPlan: {
+            opening: components["schemas"]["ScriptStep"];
+            recap: components["schemas"]["ScriptStep"];
+            discovery: components["schemas"]["ScriptStep"];
+            value: components["schemas"]["ScriptStep"];
+            objections: components["schemas"]["ScriptStep"];
+            close: components["schemas"]["ScriptStep"];
+        };
         /** Cited */
         Cited: {
             /** Text */
@@ -572,6 +584,28 @@ export interface components {
             /** Sources */
             sources: string[];
         };
+        /** OpenItem */
+        OpenItem: {
+            /** Text */
+            text: string;
+            /**
+             * Owner
+             * @description Who must act: our salesperson or a named customer person
+             */
+            owner: string | null;
+            /**
+             * Due
+             * @description Due date as YYYY-MM-DD when memory gives one, else null
+             */
+            due: string | null;
+            /**
+             * Status
+             * @enum {string}
+             */
+            status: "open" | "overdue" | "at_risk";
+            /** Sources */
+            sources: string[];
+        };
         /** OrgSettings */
         OrgSettings: {
             /** Main Prompt */
@@ -641,11 +675,14 @@ export interface components {
         };
         /** ProfileItem */
         ProfileItem: {
-            /** Text */
+            /**
+             * Text
+             * @description The fact, one sentence
+             */
             text: string;
             /**
              * Detail
-             * @description Who / role / status / due, when relevant
+             * @description At most 8 words of extra context (who raised it, role, status or due date). Never repeat `text`. null when there is nothing to add
              */
             detail: string | null;
             /** Sources */
@@ -677,10 +714,25 @@ export interface components {
              * @description Where the deal stands, 2 sentences
              */
             summary: string;
+            /**
+             * Deal Stage
+             * @enum {string}
+             */
+            deal_stage: "discovery" | "evaluation" | "negotiation" | "closing" | "won" | "lost";
+            /**
+             * Deal Health
+             * @enum {string}
+             */
+            deal_health: "on_track" | "at_risk" | "off_track";
+            /**
+             * Health Reason
+             * @description One short sentence: the main reason for the health rating
+             */
+            health_reason: string;
             /** What To Ask */
             what_to_ask: components["schemas"]["Cited"][];
             /** Open Items */
-            open_items: components["schemas"]["Cited"][];
+            open_items: components["schemas"]["OpenItem"][];
             /** Stakeholders */
             stakeholders: components["schemas"]["StakeholderPlay"][];
             /** Objections */
@@ -689,8 +741,7 @@ export interface components {
             risks: components["schemas"]["Cited"][];
             /** Playbook Tips */
             playbook_tips: components["schemas"]["Cited"][];
-            /** Call Script */
-            call_script: components["schemas"]["ScriptLine"][];
+            call_plan: components["schemas"]["CallPlan"];
             /** Next Steps */
             next_steps: string[];
             /** Follow Up Email */
@@ -764,14 +815,12 @@ export interface components {
             /** Summary */
             summary: string;
         };
-        /** ScriptLine */
-        ScriptLine: {
+        /** ScriptStep */
+        ScriptStep: {
             /**
-             * Stage
-             * @enum {string}
+             * Say
+             * @description What to say at this step, first person, natural spoken words
              */
-            stage: "Opening" | "Recap" | "Discovery" | "Value" | "Objections" | "Close";
-            /** Say */
             say: string;
             /** Sources */
             sources: string[];
@@ -804,6 +853,12 @@ export interface components {
             name: string;
             /** Role */
             role: string | null;
+            /**
+             * Stance
+             * @description Where this person stands on the deal right now, from what memory shows
+             * @enum {string}
+             */
+            stance: "champion" | "supporter" | "neutral" | "skeptic" | "blocker";
             /** Cares About */
             cares_about: string;
             /** How To Win */

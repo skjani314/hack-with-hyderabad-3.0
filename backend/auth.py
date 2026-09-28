@@ -10,6 +10,7 @@ from datetime import datetime, timedelta, timezone
 import bcrypt
 import jwt
 from bson import ObjectId
+from bson.errors import InvalidId
 from fastapi import Depends, Header, HTTPException
 
 from contracts import CustomerContext, UserOut
@@ -53,7 +54,7 @@ async def current_user(authorization: str | None = Header(None)) -> dict:
     try:
         claims = jwt.decode(authorization[7:], _secret(), algorithms=["HS256"])
         user = await database().users.find_one({"_id": ObjectId(claims["sub"]), "active": True})
-    except (jwt.PyJWTError, KeyError, ValueError):
+    except (jwt.PyJWTError, KeyError, ValueError, InvalidId):
         user = None
     if not user:
         raise HTTPException(401, {"error": "unauthenticated", "message": "Session expired, log in again"})

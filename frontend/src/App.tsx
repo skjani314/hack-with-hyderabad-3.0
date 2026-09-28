@@ -3,7 +3,7 @@ import { createCustomer, hasToken, listCustomers, login, me, setToken, whenUnaut
 import CustomerPage from './CustomerPage'
 import Playbook from './Playbook'
 import Settings from './Settings'
-import { ErrorText, Panel, errMsg, ghost, input, primary } from './ui'
+import { ErrorText, Panel, Tip, errMsg, ghost, input, primary } from './ui'
 
 /** Hash routes keep reloads and the back button working without a router library. */
 function useRoute() {
@@ -42,11 +42,11 @@ export default function App() {
         <nav className="flex items-center gap-2 text-sm">
           <a href="#/customers" className={route.page === 'customers' ? 'font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}>Customers</a>
           <span className="text-slate-300">·</span>
-          <a href="#/playbook" className={route.page === 'playbook' ? 'font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}>Company playbook</a>
+          <Tip below text="Lessons the agent learned across all customers, with names removed. Every brief draws on them."><a href="#/playbook" className={route.page === 'playbook' ? 'font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}>Company playbook</a></Tip>
           <span className="text-slate-300">·</span>
-          <a href="#/settings" className={route.page === 'settings' ? 'font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}>Settings</a>
+          <Tip below text="The organisation's main prompt for every brief. Admins can edit it."><a href="#/settings" className={route.page === 'settings' ? 'font-semibold' : 'text-slate-500 hover:text-slate-900 dark:hover:text-white'}>Settings</a></Tip>
           <span className="ml-3 rounded-full bg-slate-100 px-3 py-1 text-xs dark:bg-slate-800">{user.name} · {user.role === 'admin' ? 'admin' : 'sales exec'}</span>
-          <button className={ghost} onClick={logout}>Log out</button>
+          <Tip below text="Sign out on this device."><button className={ghost} onClick={logout}>Log out</button></Tip>
         </nav>
       </header>
       {route.page === 'customer' && route.id ? <CustomerPage id={route.id} />
@@ -136,7 +136,7 @@ function Customers() {
           <input className={input} required pattern="[a-z0-9][a-z0-9-]*" minLength={2} maxLength={40} placeholder="Customer id, e.g. globex"
             value={form.id} onChange={e => setForm(f => ({ ...f, id: e.target.value.toLowerCase() }))} />
           <input className={input} required placeholder="Industry, e.g. logistics" value={form.industry} onChange={e => setForm(f => ({ ...f, industry: e.target.value }))} />
-          <button className={`${primary} w-full`} disabled={busy}>{busy ? 'Creating memory bank…' : 'Create customer'}</button>
+          <Tip className="w-full" text="Adds the customer, assigns them to you and creates their own Hindsight memory bank. You'll be asked to confirm." wide><button className={`${primary} w-full`} disabled={busy}>{busy ? 'Creating memory bank…' : 'Create customer'}</button></Tip>
           <p className="text-xs text-slate-400">Each customer gets their own Hindsight memory bank. The first brief uses the company playbook.</p>
         </form>
       </Panel>

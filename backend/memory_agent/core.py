@@ -4,8 +4,10 @@ Every input is split in one structured extraction: customer-specific facts (and 
 customer's bank, generalised name-free lessons go to the shared `company` bank. Every report reads BOTH banks,
 with the recall queries shaped by the salesperson's prompt.
 """
+import hashlib
 import re
 import time
+from datetime import datetime, timezone
 
 from contracts import (
     SCHEMA_VERSION, CustomerContext, Extraction, Insight, InsightFilters, IngestResult, Interaction,
@@ -34,7 +36,7 @@ async def create_customer_memory(ctx: CustomerContext) -> MemoryCreated:
 async def list_sources(ctx: CustomerContext) -> list[SourceRow]:
     async with memory.client() as hc:
         docs = await memory.documents(hc, ctx.bank_id)
-    return sorted((memory.source_row(d) for d in docs), key=lambda s: s.occurred_at)
+    return sorted((memory.source_row(d) for d in docs), key=lambda s: _when(s.occurred_at))
 
 
 async def source_text(ctx: CustomerContext, document_id: str) -> str:
@@ -86,8 +88,8 @@ async def prepare_interaction(ctx: CustomerContext, raw: RawInput) -> Interactio
             occurred_at=raw.occurred_at or parsing.now(), title=raw.title or "Call recording",
             participants=raw.participants, turns=turns, text="",
             source_ref=raw.recording_url or raw.file_name or "",
-            fingerprints=[parsing.fingerprint("audio", raw.recording_url or str(len(raw.file_bytes or b"")),
-                                              raw.file_name or "")]))]
+            fingerprints=[parsing.fingerprint("audio", raw.recording_url
+                                              or hashlib.sha1(raw.file_bytes or b"").hexdigest())]))]
     elif channel == "whatsapp" and parsing.detect_channel(text) == "whatsapp":  # a chat export
         items, new, dup = parsing.parse_whatsapp(text, existing, known_fps)
         if not items:
@@ -187,7 +189,7 @@ async def _extract(ctx: CustomerContext, rendered: str, advice: str) -> Extracti
     instructions = EXTRACT_INSTRUCTIONS.format(name=ctx.name, industry=ctx.industry, exec_name=ctx.exec_name,
                                                advice=ADVICE_BLOCK.format(advice=advice) if advice else "")
     parts = _chunks(rendered, 2500)
-    results = [await llm.structured(Extraction, instructions, part, max_tokens=3500) for part in parts]
+    results = [await llm.structured(Extraction, instructions, part, max_tokens=2500) for part in parts]
     if len(results) == 1:
         return results[0]
     merged = results[0].model_copy(deep=True)  # long call: facts from every chunk, summary joined
@@ -244,7 +246,7 @@ async def ingest_interaction(ctx: CustomerContext, interactions: list[Interactio
                 context=f"{it.channel} with {ctx.name} ({ctx.industry}): {it.title}"[:200],
                 metadata={"channel": it.channel, "title": it.title[:120], "occurred_at": it.occurred_at.isoformat(),
                           "people": people, "source_ref": it.source_ref[:200], "fingerprints": ",".join(fps),
-                          "summary": (ex.summary if ex else "")[:500]},
+                          "summary": (ex.summary if ex else "")[:1000]},  # read by briefs as the latest state
                 tags=[f"channel:{it.channel}"])])
             remembered.append(it.document_id)
             trace.append(TraceStep(step="retain", detail=f"{ctx.bank_id}/{it.document_id}",
@@ -298,6 +300,16 @@ def _fit(lines: list[str], budget_tokens: int) -> list[str]:
     return out
 
 
+def _when(iso: str) -> datetime:
+    """Sort key for stored ISO dates. They carry different UTC offsets (-05:00, +00:00), so compare as instants,
+    never as strings; unknown dates sort first."""
+    try:
+        d = datetime.fromisoformat(iso)
+        return d if d.tzinfo else d.replace(tzinfo=timezone.utc)
+    except (TypeError, ValueError):
+        return datetime.min.replace(tzinfo=timezone.utc)
+
+
 def _gate_ids(ids: list[str], known: set[str]) -> list[str]:
     """Evidence gate: keep only ids that exist in memory, returned in their stored spelling (case-insensitive,
     because models write INS-3FA2C1AB for INS-3fa2c1ab)."""
@@ -329,32 +341,56 @@ async def _recall_both(hc, ctx: CustomerContext, prompt: str) -> tuple[list[Fact
     return dedupe(cust), dedupe(comp + general), trace
 
 
+def _latest(docs: list[dict], n: int = 3) -> list[str]:
+    """The newest interactions with their extraction summaries. Recall ranks by relevance, not date, so without this
+    the newest message (the one that says something was approved or replaced) can be missing from the brief."""
+    newest = sorted(docs, key=lambda d: _when((d.get("document_metadata") or {}).get("occurred_at", "")))[-n:]
+    out = []
+    for d in newest:
+        md = d.get("document_metadata") or {}
+        summary = md.get("summary") or md.get("title", "")
+        out.append(f"[{d['id']}] {md.get('occurred_at', '')[:10]} {md.get('channel', '')} · {md.get('title', '')}: "
+                   f"{summary}")
+    return out
+
+
 async def generate_report(ctx: CustomerContext, prompt: str, history: list[str] | None = None,
                           pieces: list[str] | None = None, org_prompt: str | None = None) -> Report:
     instructions, used = prompts.compose(ctx.exec_name, ctx.name, ctx.industry, pieces or [], org_prompt)
     async with memory.client() as hc:
         docs = await memory.documents(hc, ctx.bank_id)
         cust, comp, trace = await _recall_both(hc, ctx, prompt)
-    rows = sorted((memory.source_row(d) for d in docs), key=lambda s: s.occurred_at)
+    rows = sorted((memory.source_row(d) for d in docs), key=lambda r: _when(r.occurred_at))
     convo = _fit([f"{r.document_id} | {r.channel} | {r.occurred_at[:10]} | {r.title}" for r in rows[-25:]], 400)
-    cust_lines = _fit([f.line() for f in cust], 1600)
+    latest = _fit(_latest(docs), 500)
+    cust_lines = _fit([f.line() for f in cust], 1500)
     comp_lines = _fit([f.line() for f in comp], 600)
-    user = (f"CONVERSATIONS IN MEMORY (oldest first):\n{chr(10).join(convo) or '(none yet)'}\n\n"
-            f"CUSTOMER MEMORY:\n{chr(10).join(cust_lines) or '(empty: new customer)'}\n\n"
-            f"COMPANY PLAYBOOK:\n{chr(10).join(comp_lines) or '(no lessons yet)'}\n\n"
-            + (f"EARLIER IN THIS CONVERSATION:\n{chr(10).join(history[-4:])}\n\n" if history else "")
-            + f"SALESPERSON'S REQUEST: {prompt}")
-    draft = await llm.structured(ReportDraft, instructions, user, max_tokens=3500)
+    sections = [
+        ("CONVERSATIONS IN MEMORY (oldest first)", convo, "(none yet)"),
+        ("MOST RECENT INTERACTIONS (newest last; they override anything older)", latest, "(none yet)"),
+        ("CUSTOMER MEMORY", cust_lines, "(empty: new customer)"),
+        ("COMPANY PLAYBOOK", comp_lines, "(no lessons yet)"),
+    ]
+    if history:
+        sections.append(("EARLIER IN THIS CONVERSATION", history[-4:], ""))
+    user = "\n\n".join(f"{title}:\n" + ("\n".join(lines) or empty) for title, lines, empty in sections)
+    user += f"\n\nSALESPERSON'S REQUEST: {prompt}"
+    trace.append(TraceStep(step="latest", detail="newest interactions",
+                           result=", ".join(r.document_id for r in rows[-3:])))
+    # medium reasoning: at "low", gpt-oss read "support plan instead of a 10% discount" as "10% discount agreed".
+    # The extra reasoning tokens fit the 8k/min budget; a second brief in the same minute waits (llm.structured).
+    draft = await llm.structured(ReportDraft, instructions, user, max_tokens=4000, effort="medium")
     trace.append(TraceStep(step="write_report", detail=f"pieces: {', '.join(used) or 'none'}"))
 
-    known = {r.document_id for r in rows} | {f.document_id for f in comp if f.document_id}
+    customer_ids = {r.document_id for r in rows}
+    known = customer_ids | {i for f in comp for i in f.sources}
     dropped = 0
 
-    def keep(items, required=True):
+    def keep(items, required=True, allowed=known):
         nonlocal dropped
         out = []
         for x in items:
-            x.sources = _gate_ids(x.sources, known)
+            x.sources = _gate_ids(x.sources, allowed)
             if required and not x.sources:
                 dropped += 1
                 continue
@@ -362,15 +398,19 @@ async def generate_report(ctx: CustomerContext, prompt: str, history: list[str] 
         return out
 
     rep = Report(**draft.model_dump())
-    rep.open_items, rep.risks = keep(rep.open_items), keep(rep.risks)
-    rep.playbook_tips, rep.stakeholders = keep(rep.playbook_tips), keep(rep.stakeholders)
-    rep.objections = keep(rep.objections)
-    rep.what_to_ask, rep.call_script = keep(rep.what_to_ask, False), keep(rep.call_script, False)
+    rep.open_items = keep(rep.open_items, allowed=customer_ids)  # open items are about this customer only
+    rep.risks, rep.playbook_tips = keep(rep.risks), keep(rep.playbook_tips)
+    rep.stakeholders, rep.objections = keep(rep.stakeholders), keep(rep.objections)
+    rep.what_to_ask = keep(rep.what_to_ask, False)
+    for step in (rep.call_plan.opening, rep.call_plan.recap, rep.call_plan.discovery, rep.call_plan.value,
+                 rep.call_plan.objections, rep.call_plan.close):
+        step.sources = _gate_ids(step.sources, known)
+        step.say = IDS.sub("", step.say).strip()
     rep.answer, rep.summary = _strip_unknown(rep.answer, known), _strip_unknown(rep.summary, known)
     rep.follow_up_email = IDS.sub("", rep.follow_up_email).strip()
     rep.next_steps = [_strip_unknown(s, known) for s in rep.next_steps]
     rep.memory_used = {"customer_facts": len(cust_lines), "company_lessons": len(comp_lines),
-                       "conversations": len(rows)}
+                       "conversations": len(rows), "latest": len(latest)}
     rep.dropped, rep.trace, rep.schema_version, rep.pieces = dropped, trace, SCHEMA_VERSION, used
     return rep
 
@@ -378,8 +418,14 @@ async def generate_report(ctx: CustomerContext, prompt: str, history: list[str] 
 # ---------- A5 ----------
 
 PROFILE_INSTRUCTIONS = """Build the account profile of {name} from CUSTOMER MEMORY only. Each item cites the source ids
-it came from, copied exactly. `detail` holds who raised it / role / status / due date when relevant. Later messages
-override earlier ones. Leave a section empty when memory has nothing for it. Never invent anything."""
+printed in square brackets at the start of the memory lines it came from, copied exactly; never cite an id that is not
+on those lines. `detail` is a few words of extra context (who raised it, role, status, due date) and must not repeat
+the item. List each person once in stakeholders and each fact once overall. Later messages override earlier ones.
+Leave a section empty when memory has nothing for it. Never invent anything."""
+
+
+def _norm(text: str) -> str:
+    return re.sub(r"[^a-z0-9 ]+", "", text.lower()).strip()
 
 
 async def get_profile(ctx: CustomerContext) -> Profile:
@@ -394,17 +440,21 @@ async def get_profile(ctx: CustomerContext) -> Profile:
             facts += await memory.recall(hc, ctx.bank_id, q, limit=8)
     lines = _fit(list(dict.fromkeys(f.line() for f in facts)), 2200)
     draft = await llm.structured(ProfileDraft, PROFILE_INSTRUCTIONS.format(name=ctx.name),
-                                 "CUSTOMER MEMORY:\n" + "\n".join(lines), max_tokens=3000)
+                                 "CUSTOMER MEMORY:\n" + "\n".join(lines), max_tokens=2200)
     known = {d["id"] for d in docs}
-    prof, dropped = Profile(**draft.model_dump()), 0
+    prof, dropped, seen = Profile(**draft.model_dump()), 0, set()
     for field in ProfileDraft.model_fields:
         kept = []
         for item in getattr(prof, field):
             item.sources = _gate_ids(item.sources, known)
-            if item.sources:
-                kept.append(item)
-            else:
+            key = _norm(item.text)
+            if not item.sources:
                 dropped += 1
+            elif key not in seen:  # the same fact (or person) once, in the first section it appears
+                seen.add(key)
+                if item.detail and _norm(item.detail) in key:
+                    item.detail = None  # detail that only repeats the text adds nothing
+                kept.append(item)
         setattr(prof, field, kept)
     prof.dropped = dropped
     return prof

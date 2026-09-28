@@ -1174,6 +1174,40 @@
     "type": "object",
     "title": "Body_preview_api_customers__customer_id__interactions_preview_post"
    },
+   "CallPlan": {
+    "properties": {
+     "opening": {
+      "$ref": "#/components/schemas/ScriptStep"
+     },
+     "recap": {
+      "$ref": "#/components/schemas/ScriptStep"
+     },
+     "discovery": {
+      "$ref": "#/components/schemas/ScriptStep"
+     },
+     "value": {
+      "$ref": "#/components/schemas/ScriptStep"
+     },
+     "objections": {
+      "$ref": "#/components/schemas/ScriptStep"
+     },
+     "close": {
+      "$ref": "#/components/schemas/ScriptStep"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "opening",
+     "recap",
+     "discovery",
+     "value",
+     "objections",
+     "close"
+    ],
+    "title": "CallPlan",
+    "description": "The call in order. Each step is a separate field, so the order is guaranteed by the schema."
+   },
    "Cited": {
     "properties": {
      "text": {
@@ -1468,6 +1502,7 @@
     "properties": {
      "document_id": {
       "type": "string",
+      "pattern": "^(CALL|EM|WA|CRM|NOTE|FILE|OUT)-[A-Za-z0-9-]{1,60}$",
       "title": "Document Id"
      },
      "channel": {
@@ -1762,6 +1797,64 @@
     ],
     "title": "ObjectionPlay"
    },
+   "OpenItem": {
+    "properties": {
+     "text": {
+      "type": "string",
+      "title": "Text"
+     },
+     "owner": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Owner",
+      "description": "Who must act: our salesperson or a named customer person"
+     },
+     "due": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Due",
+      "description": "Due date as YYYY-MM-DD when memory gives one, else null"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "open",
+       "overdue",
+       "at_risk"
+      ],
+      "title": "Status"
+     },
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Sources"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "text",
+     "owner",
+     "due",
+     "status",
+     "sources"
+    ],
+    "title": "OpenItem"
+   },
    "OrgSettings": {
     "properties": {
      "main_prompt": {
@@ -1950,7 +2043,8 @@
     "properties": {
      "text": {
       "type": "string",
-      "title": "Text"
+      "title": "Text",
+      "description": "The fact, one sentence"
      },
      "detail": {
       "anyOf": [
@@ -1962,7 +2056,7 @@
        }
       ],
       "title": "Detail",
-      "description": "Who / role / status / due, when relevant"
+      "description": "At most 8 words of extra context (who raised it, role, status or due date). Never repeat `text`. null when there is nothing to add"
      },
      "sources": {
       "items": {
@@ -2025,6 +2119,32 @@
       "title": "Summary",
       "description": "Where the deal stands, 2 sentences"
      },
+     "deal_stage": {
+      "type": "string",
+      "enum": [
+       "discovery",
+       "evaluation",
+       "negotiation",
+       "closing",
+       "won",
+       "lost"
+      ],
+      "title": "Deal Stage"
+     },
+     "deal_health": {
+      "type": "string",
+      "enum": [
+       "on_track",
+       "at_risk",
+       "off_track"
+      ],
+      "title": "Deal Health"
+     },
+     "health_reason": {
+      "type": "string",
+      "title": "Health Reason",
+      "description": "One short sentence: the main reason for the health rating"
+     },
      "what_to_ask": {
       "items": {
        "$ref": "#/components/schemas/Cited"
@@ -2034,7 +2154,7 @@
      },
      "open_items": {
       "items": {
-       "$ref": "#/components/schemas/Cited"
+       "$ref": "#/components/schemas/OpenItem"
       },
       "type": "array",
       "title": "Open Items"
@@ -2067,12 +2187,8 @@
       "type": "array",
       "title": "Playbook Tips"
      },
-     "call_script": {
-      "items": {
-       "$ref": "#/components/schemas/ScriptLine"
-      },
-      "type": "array",
-      "title": "Call Script"
+     "call_plan": {
+      "$ref": "#/components/schemas/CallPlan"
      },
      "next_steps": {
       "items": {
@@ -2124,13 +2240,16 @@
     "required": [
      "answer",
      "summary",
+     "deal_stage",
+     "deal_health",
+     "health_reason",
      "what_to_ask",
      "open_items",
      "stakeholders",
      "objections",
      "risks",
      "playbook_tips",
-     "call_script",
+     "call_plan",
      "next_steps",
      "follow_up_email"
     ],
@@ -2233,23 +2352,12 @@
     ],
     "title": "RequestRow"
    },
-   "ScriptLine": {
+   "ScriptStep": {
     "properties": {
-     "stage": {
-      "type": "string",
-      "enum": [
-       "Opening",
-       "Recap",
-       "Discovery",
-       "Value",
-       "Objections",
-       "Close"
-      ],
-      "title": "Stage"
-     },
      "say": {
       "type": "string",
-      "title": "Say"
+      "title": "Say",
+      "description": "What to say at this step, first person, natural spoken words"
      },
      "sources": {
       "items": {
@@ -2262,11 +2370,10 @@
     "additionalProperties": false,
     "type": "object",
     "required": [
-     "stage",
      "say",
      "sources"
     ],
-    "title": "ScriptLine"
+    "title": "ScriptStep"
    },
    "SourceRow": {
     "properties": {
@@ -2353,6 +2460,18 @@
       ],
       "title": "Role"
      },
+     "stance": {
+      "type": "string",
+      "enum": [
+       "champion",
+       "supporter",
+       "neutral",
+       "skeptic",
+       "blocker"
+      ],
+      "title": "Stance",
+      "description": "Where this person stands on the deal right now, from what memory shows"
+     },
      "cares_about": {
       "type": "string",
       "title": "Cares About"
@@ -2374,6 +2493,7 @@
     "required": [
      "name",
      "role",
+     "stance",
      "cares_about",
      "how_to_win",
      "sources"

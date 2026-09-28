@@ -1,6 +1,6 @@
 import { useEffect, useState } from 'react'
 import { getSettings, saveSettings, type OrgSettings, type User } from './api'
-import { ErrorText, Panel, errMsg, ghost, input, primary } from './ui'
+import { ErrorText, Panel, Tip, errMsg, ghost, input, primary } from './ui'
 
 /** The organisation's main prompt: stored in MongoDB, edited here by an admin, used by every brief. */
 export default function Settings({ user }: { user: User }) {
@@ -32,8 +32,8 @@ export default function Settings({ user }: { user: User }) {
         <div className="mt-1 text-right text-[11px] text-slate-400">{text.length} / 4000</div>
         {admin ? (
           <div className="mt-2 flex flex-wrap gap-2">
-            <button className={primary} disabled={busy || text.trim().length < 20 || text === s.main_prompt} onClick={() => save(text)}>{busy ? 'Saving…' : 'Save'}</button>
-            <button className={ghost} disabled={busy || s.is_default} onClick={() => { if (confirm('Reset to the default prompt?')) save(s.default_prompt) }}>Reset to default</button>
+            <Tip text="Saves the prompt to the organisation's settings (MongoDB). The next brief for every sales exec uses it."><button className={primary} disabled={busy || text.trim().length < 20 || text === s.main_prompt} onClick={() => save(text)}>{busy ? 'Saving…' : 'Save'}</button></Tip>
+            <Tip text="Puts back the built-in prompt. The locked rules on the right are never affected."><button className={ghost} disabled={busy || s.is_default} onClick={() => { if (confirm('Reset to the default prompt?')) save(s.default_prompt) }}>Reset to default</button></Tip>
           </div>
         ) : <p className="mt-2 text-xs text-slate-400">Only an admin can change the organisation's prompt.</p>}
         <div className="mt-2 space-y-2">

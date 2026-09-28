@@ -12,7 +12,7 @@ from dataclasses import dataclass
 
 from contracts import SourceRow
 
-from .errors import AgentError, ConfigMissing, MemoryUnavailable
+from .errors import AgentError, ConfigMissing, MemoryUnavailable, NotFound
 
 COMPANY_BANK = os.getenv("COMPANY_BANK", "company")
 
@@ -35,14 +35,15 @@ COMPANY_OBSERVATIONS_MISSION = (
 
 @dataclass
 class Fact:
-    document_id: str | None
+    sources: list[str]   # document ids; an observation lists every document its source facts came from
     when: str
     text: str
     tags: list[str]
 
     def line(self) -> str:
-        # Consolidated observations have no single source document: listed without an id so they can't be cited.
-        return f"[{self.document_id}] {self.when} {self.text}" if self.document_id else f"- {self.text}"
+        ids = "".join(f"[{s}]" for s in self.sources)
+        # A fact with no traceable source is listed without an id, so it can never be cited.
+        return " ".join(p for p in (ids, self.when, self.text) if p) if ids else f"- {self.text}"
 
 
 def _not_found(e: BaseException) -> bool:
@@ -105,8 +106,11 @@ async def recall(hc, bank_id: str, query: str, tags: list[str] | None = None, li
     """strict=True: only memories carrying one of `tags`. strict=False: those plus untagged memories
     (Hindsight `any` vs `any_strict`, docs: developer/api/recall)."""
     try:
+        # include_source_facts: consolidated observations have no document of their own; their source facts do,
+        # so we can cite the real messages behind an observation instead of letting the LLM guess an id.
         res = await hc.arecall(bank_id=bank_id, query=query, tags=tags or None,
-                               tags_match="any_strict" if strict else "any", budget=budget, max_tokens=4096)
+                               tags_match="any_strict" if strict else "any", budget=budget, max_tokens=4096,
+                               include_source_facts=True, max_source_facts_tokens=2048)
     except Exception as e:
         if _not_found(e):
             return []  # empty bank (new customer): nothing remembered yet
@@ -117,7 +121,12 @@ async def recall(hc, bank_id: str, query: str, tags: list[str] | None = None, li
             continue
         seen.add(r.text)
         when = str(r.occurred_start or r.mentioned_at or "")[:10]
-        out.append(Fact(r.document_id, when, r.text, list(r.tags or [])))
+        if r.document_id:
+            ids = [r.document_id]
+        else:
+            facts = [(res.source_facts or {}).get(fid) for fid in (r.source_fact_ids or [])]
+            ids = sorted({f.document_id for f in facts if f is not None and f.document_id})
+        out.append(Fact(ids, when, r.text, list(r.tags or [])))
     return out[:limit]
 
 
@@ -156,7 +165,12 @@ def fingerprints(docs: list[dict]) -> set[str]:
 
 
 async def document_text(hc, bank_id: str, document_id: str) -> str:
-    d = await hc.documents.get_document(bank_id=bank_id, document_id=document_id)
+    try:
+        d = await hc.documents.get_document(bank_id=bank_id, document_id=document_id)
+    except Exception as e:
+        if _not_found(e):
+            raise NotFound(f"No source '{document_id}' in this customer's memory") from e
+        raise
     return d.original_text or ""
 
 

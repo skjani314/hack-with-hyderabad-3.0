@@ -108,4 +108,39 @@ single = parsing.parse_text("Priya says she still has not received the questionn
 assert single.document_id == "WA-01" and single.channel == "whatsapp" and not single.turns
 assert parsing.detect_channel(single.text) != "whatsapp"  # so prepare_interaction routes it to parse_text
 
+# 11. Groq wait time: Retry-After header wins, else the "try again in" text; unknown → None
+from memory_agent import llm, memory
+class E(Exception):
+    def __init__(self, msg, headers=None): super().__init__(msg); self.headers = headers or {}; self.body = msg
+assert llm._retry_after([E("x", {"retry-after": "7"})]) == 7.0
+assert abs(llm._retry_after([E("Rate limit reached ... Please try again in 6.52s. Need more tokens?")]) - 6.52) < 1e-6
+assert abs(llm._retry_after([E("try again in 450ms")]) - 0.45) < 1e-6
+assert llm._retry_after([E("try again in 1m3.5s")]) == 63.5 and llm._retry_after([E("boom")]) is None
+
+# 12. Recalled lines carry every real source id; untraceable facts get none, so they can't be cited
+assert memory.Fact(["WA-02"], "2026-08-25", "throttled", []).line() == "[WA-02] 2026-08-25 throttled"
+assert memory.Fact(["CRM-04", "WA-02"], "", "competitor", []).line() == "[CRM-04][WA-02] competitor"
+assert memory.Fact([], "", "merged", []).line() == "- merged"
+
+# 13. Stored dates carry different UTC offsets: sort as instants, not strings
+from datetime import datetime, timezone
+a, b = "2026-09-09T10:00:00-05:00", "2026-09-09T12:00:00+00:00"   # a is 15:00 UTC, so it is LATER than b
+assert sorted([a, b], key=core._when) == [b, a] and sorted([a, b]) == [a, b]
+assert core._when("") == datetime.min.replace(tzinfo=timezone.utc)
+
+# 14. Newest interactions are listed with their summaries, oldest of the three first
+docs = [{"id": f"EM-0{i}", "document_metadata": {"occurred_at": f"2026-09-0{i}T10:00:00+00:00", "channel": "email",
+                                                 "title": f"t{i}", "summary": f"s{i}"}} for i in range(1, 6)]
+lat = core._latest(docs)
+assert [x.split("]")[0] for x in lat] == ["[EM-03", "[EM-04", "[EM-05"] and lat[-1].endswith("t5: s5"), lat
+
+# 15. Interaction ids from the browser are validated (never INS-…, never free text)
+from pydantic import ValidationError
+for bad in ("INS-3fa2c1ab", "CALL 07", "", "X-01"):
+    try:
+        Interaction(document_id=bad, channel="note", occurred_at=parsing.now(), title="t", text="x")
+        raise AssertionError(f"accepted {bad!r}")
+    except ValidationError:
+        pass
+
 print("ok")

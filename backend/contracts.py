@@ -52,7 +52,9 @@ class Turn(BaseModel):
 
 
 class Interaction(BaseModel):
-    document_id: str                   # CALL-07, EM-12, WA-2026-09-12, FILE-proposal-v2
+    # CALL-07, EM-12, WA-2026-09-12, FILE-proposal-v2. The browser sends previews back, so the id is validated:
+    # the agent cites it, the UI links it, and it must never be shaped like a company lesson (INS-…).
+    document_id: str = Field(pattern=r"^(CALL|EM|WA|CRM|NOTE|FILE|OUT)-[A-Za-z0-9-]{1,60}$")
     channel: Channel
     occurred_at: datetime
     title: str
@@ -196,8 +198,18 @@ class Cited(Strict):
 class StakeholderPlay(Strict):
     name: str
     role: str | None
+    stance: Literal["champion", "supporter", "neutral", "skeptic", "blocker"] = Field(
+        description="Where this person stands on the deal right now, from what memory shows")
     cares_about: str
     how_to_win: str
+    sources: list[str]
+
+
+class OpenItem(Strict):
+    text: str
+    owner: str | None = Field(description="Who must act: our salesperson or a named customer person")
+    due: str | None = Field(description="Due date as YYYY-MM-DD when memory gives one, else null")
+    status: Literal["open", "overdue", "at_risk"]
     sources: list[str]
 
 
@@ -209,23 +221,35 @@ class ObjectionPlay(Strict):
     sources: list[str]
 
 
-class ScriptLine(Strict):
-    stage: Literal["Opening", "Recap", "Discovery", "Value", "Objections", "Close"]
-    say: str
+class ScriptStep(Strict):
+    say: str = Field(description="What to say at this step, first person, natural spoken words")
     sources: list[str]
+
+
+class CallPlan(Strict):
+    """The call in order. Each step is a separate field, so the order is guaranteed by the schema."""
+    opening: ScriptStep
+    recap: ScriptStep
+    discovery: ScriptStep
+    value: ScriptStep
+    objections: ScriptStep
+    close: ScriptStep
 
 
 class ReportDraft(Strict):
     """What the LLM writes. The API response (`Report`) adds gate results and the memory trace."""
     answer: str = Field(description="Direct answer to the salesperson's question, under 120 words")
     summary: str = Field(description="Where the deal stands, 2 sentences")
+    deal_stage: Literal["discovery", "evaluation", "negotiation", "closing", "won", "lost"]
+    deal_health: Literal["on_track", "at_risk", "off_track"]
+    health_reason: str = Field(description="One short sentence: the main reason for the health rating")
     what_to_ask: list[Cited]
-    open_items: list[Cited]
+    open_items: list[OpenItem]
     stakeholders: list[StakeholderPlay]
     objections: list[ObjectionPlay]
     risks: list[Cited]
     playbook_tips: list[Cited]
-    call_script: list[ScriptLine]
+    call_plan: CallPlan
     next_steps: list[str]
     follow_up_email: str
 
@@ -249,8 +273,9 @@ class PromptPiece(BaseModel):
 # ---------- profile ----------
 
 class ProfileItem(Strict):
-    text: str
-    detail: str | None = Field(description="Who / role / status / due, when relevant")
+    text: str = Field(description="The fact, one sentence")
+    detail: str | None = Field(description="At most 8 words of extra context (who raised it, role, status or due "
+                                           "date). Never repeat `text`. null when there is nothing to add")
     sources: list[str]
 
 

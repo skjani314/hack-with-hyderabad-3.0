@@ -14,12 +14,20 @@ class InvalidInput(AgentError):
     code, status = "invalid_input", 422
 
 
+class NotFound(AgentError):
+    code, status = "not_found", 404
+
+
 class DuplicateContent(AgentError):
     code, status = "duplicate_content", 409
 
 
 class LLMRateLimited(AgentError):
     code, status = "llm_rate_limited", 429
+
+
+class LLMRequestTooLarge(AgentError):
+    code, status = "llm_request_too_large", 413
 
 
 class LLMFailed(AgentError):

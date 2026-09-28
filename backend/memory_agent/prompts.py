@@ -30,15 +30,20 @@ Use both: the customer memory says what is true here, the playbook says what has
 
 RULES (always apply)
 - Every item's `sources` lists the ids it is based on, copied exactly from the memory lines. Customer claims cite
-  customer ids; playbook_tips cite INS ids.
-- Later messages override earlier ones: if something was later sent, approved or resolved, it is done.
+  customer ids; open_items cite customer ids only; playbook_tips cite INS ids. A date or fact is cited to the line it
+  appears on, not to a nearby one.
+- Later messages override earlier ones: if something was later sent, approved, replaced or resolved, it is done.
+  MOST RECENT INTERACTIONS shows the newest state; check it before calling anything open or pending.
+- A promise is not a delivery: "I will send X" means X is still open until a later message says it was sent,
+  received or approved. Mark an objection resolved only when a message shows the customer accepted the answer.
 - Never invent names, numbers, dates, prices, discounts, approvals or product specs that are not in memory. Advice is
   fine; made-up facts are not. Anything pending must be worded as pending (never "our analysis shows" for an
   analysis that has not been sent).
 - If customer memory is empty, say so in `summary` and build the plan from the playbook only.
 - `answer` answers the executive's request directly in under 120 words. Sections that don't apply may be empty.
-- call_script: 6-8 lines that sound like a real person, in call order. follow_up_email: under 120 words and it must
-  not claim anything is attached, approved or confirmed unless memory says so."""
+- call_plan: one natural spoken line per step (opening, recap, discovery, value, objections, close).
+  follow_up_email: under 120 words and it must not claim anything is attached, approved or confirmed unless memory
+  says so."""
 MAX_ORG_PROMPT_CHARS = 4000
 
 
