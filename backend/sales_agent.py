@@ -36,6 +36,7 @@ MAX_FACTS = 12          # facts per recall for chat; call prep uses 8 per angle 
 MAX_SOURCE_CHARS = 1500
 CHAT_LIMITS = UsageLimits(request_limit=4)  # prefetch makes 1 LLM call the norm; up to 2 tool rounds + 1 retry
 PREP_LIMITS = UsageLimits(request_limit=3)  # one pass, plus up to 2 retries if the output fails validation
+CHAT_MAX_TOKENS = 2000  # gpt-oss is a reasoning model: hidden thinking counts against this cap too
 
 
 # ---------- structured output (call prep; chat answers are plain text with inline [EM-02] citations) ----------
@@ -185,10 +186,10 @@ def ask(dl, question, known, use_memory=True):
     # Plain text output: citations are parsed from the [EM-02] marks, and open models fail typed output more often.
     queries = [question, "latest status, open commitments and deadlines"]
     try:
-        out, trace = _run(dl, known, question, str, queries, MAX_FACTS, CHAT_LIMITS, 700)
+        out, trace = _run(dl, known, question, str, queries, MAX_FACTS, CHAT_LIMITS, CHAT_MAX_TOKENS)
     except (UsageLimitExceeded, UnexpectedModelBehavior):
         # the agent kept digging or returned nothing usable: answer in one pass from the prefetched memory
-        out, trace = _run(dl, known, question, str, queries, MAX_FACTS, PREP_LIMITS, 700, tools=False)
+        out, trace = _run(dl, known, question, str, queries, MAX_FACTS, PREP_LIMITS, CHAT_MAX_TOKENS, tools=False)
     answer, cited = memory.gate_answer(out, [], known)
     return answer, cited, trace
 

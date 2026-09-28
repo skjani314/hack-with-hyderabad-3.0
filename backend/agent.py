@@ -129,7 +129,8 @@ def gate_profile(profile, known):
 def gate_answer(answer, sources, known):
     """Remove citations to messages that are not in memory, from both the list and the text."""
     real = sorted({s.strip("[] ") for s in sources} & known)
-    text = re.sub(r"\[(?:summary|source|memory)[^\]]*\]", "", answer, flags=re.I)  # made-up citation formats
+    text = re.sub(r"\[([A-Z]+)[‐-―−](\d+)\]", r"[\1-\2]", answer)  # models write EM‑03 with fancy hyphens
+    text = re.sub(r"\[(?:summary|source|memory)[^\]]*\]", "", text, flags=re.I)  # made-up citation formats
     text = IDS.sub(lambda m: m.group(0) if m.group(1) in known else "", text)
     cited = set(IDS.findall(text))
     return re.sub(r"\s{2,}", " ", text).strip(), sorted(set(real) | cited)

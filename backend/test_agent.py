@@ -37,6 +37,10 @@ assert p["pain_points"][0]["sources"] == ["EM-01"], p  # brackets stripped, unkn
 text, srcs = gate_answer("Finance wants 3-year cost [EM-02] and a budget date [CRM-04].", ["EM-02", "CRM-04"], known)
 assert "[CRM-04]" not in text and "[EM-02]" in text and srcs == ["EM-02"], (text, srcs)
 
+# 5b. Citation variants models produce: non-breaking hyphens are real citations, placeholders are not
+text, srcs = gate_answer("due Sep 5 [EM‑02], x [?] y [summary-2026-08-25]", [], known)
+assert srcs == ["EM-02"] and "[EM-02]" in text and "[?]" not in text and "summary" not in text, (text, srcs)
+
 # 6. The connector only offers what memory does not hold yet, oldest first
 left = pending({"CRM-01", "CRM-02"})
 assert left[0]["id"] == "CRM-03" and all(i["id"] not in {"CRM-01", "CRM-02"} for i in left)
