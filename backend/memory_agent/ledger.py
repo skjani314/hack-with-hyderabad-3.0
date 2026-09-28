@@ -110,6 +110,7 @@ def merge(old: Ledger | None, upd: LedgerUpdate, known: set[str], team: list[str
         seen_p.add(key)
         people.append(p)
     people += [p for k, p in old_people.items() if k not in seen_p]
+    people = [p for p in people if p.sources]  # the model sometimes lists our whole team; a person needs evidence
     return Ledger(summary=upd.summary, stage=upd.stage, items=items, people=people,
                   based_on=(old.based_on if old else []), updated_at=datetime.now(timezone.utc))
 

@@ -349,106 +349,104 @@ Record only generalised, reusable sales patterns by industry and buyer role. Nev
 5. **Log in as admin → Settings** → change the main prompt (e.g. "Always end with one question for the CFO") →
    ask again → the brief follows it.
 
-## 8. Happy-path test script (step by step, from zero)
+## 8. Happy-path test script (Globex, step by step)
 
 **What this test proves, in the problem's own terms:** a salesperson should not have to re-read a customer's history
-before a call, and what one account teaches should help the next. So the test starts a **brand-new customer** with an
-empty memory and checks four things in order:
+before a call, and what one account teaches should help the next. The test continues the **Globex Systems** deal
+with a new chapter and checks four things in order:
 
-1. **Day one, no history** — the brief is still useful, because it draws on the company playbook.
-2. **Memory builds up** — after an email and a call, the brief knows the pain, the people, the objections and the
+1. **Memory is used** — before anything new is added, the brief already knows where Globex stands, with sources.
+2. **Memory builds up** — after a new email and a call, the brief knows the new objection, the new person and the new
    deadlines, each linked to its source.
-3. **Current state stays current** — when a later chat says something was received or accepted, the deal ledger closes
-   it and briefs stop listing it as open.
+3. **Current state stays current** — when a later chat says something was sent, approved or accepted, the deal ledger
+   closes it and briefs stop listing it as open.
 4. **The company learns** — the outcome, linked to the brief that advised it, becomes a playbook lesson marked
-   *confirmed by outcome*.
+   *confirmed by outcome*, and that lesson then shows up for a **different customer** (Acme).
 
 **Before you start**
-- Log in as **Kami** (`kami@clarity.example`, password in [section 4](#4-logins)).
-- Use a **new customer id each run** (`initech-yourname`), because memory remembers everything and rejects a second
-  copy of the same text.
+- Log in as **Kami** (`kami@clarity.example`, password in [section 4](#4-logins)) and open **Globex Systems**.
+- **Run it once.** Memory remembers everything: pasting the same text a second time is rejected as "already in
+  memory" — that is the duplicate check working, not a bug.
 - Paste the texts below **exactly as shown, lines starting at the left edge** (copy from GitHub's rendered page or the
   raw file). Leave **Type** on *detect automatically* unless a step says otherwise.
-- Each step takes 10–40 seconds (Groq's free tier); if a message says Groq is busy, wait a minute and retry.
+- Each step takes 10–60 seconds (Groq's free tier); if a message says Groq is busy, wait a minute and retry.
 
-### Step 0 — create the customer
-**Customers → New customer:** name `Initech Labs`, id `initech-yourname`, industry `technology` → **Create** → confirm.
+**Where Globex stands before the test:** Lena Park (Verification Lead) wants overnight verification runs; Omar
+(Finance Lead) accepted a 13-month payback and bundled support instead of a discount; security approved the
+questionnaire; a PO for 10 units was expected "next week".
 
-✅ **Check:** you land on the Initech page; "Memory: interactions" is empty; the Deal ledger says *Empty*.
-
-### Step 1 — a brief with an empty memory (the playbook helps from day one)
-Chips: **Discovery call** + **ROI for finance**. Ask:
+### Step 1 — a brief from existing memory
+Chips: **Closing**. Ask:
 ```text
-First call with Initech next week. How do I win this deal?
+Where do we stand with Globex, and what's still open?
 ```
 ✅ **Check**
-- The answer says there is no customer history yet.
-- **More details → From the company playbook** lists lessons with **amber `INS-…` chips**, learned from Acme,
-  Brightline and Globex. Click one: the lesson opens and names **no** customer or person.
+- The answer knows the story: payback accepted, bundled support agreed, security approved, PO expected.
+- Every line has a grey source chip (`EM-01`, `WA-2026-09-24`, `OUT-01` …). Click one: the drawer shows the message.
+- The **Deal ledger** panel (right) shows those items under **Done / resolved**.
 
-### Step 2 — remember the first email
-**Add to memory → Paste text.** Happened on: **21 Sep 2026, 10:00**. Paste:
+### Step 2 — remember a new email (a new objection and a new person)
+**Add to memory → Paste text.** Happened on: **26 Sep 2026, 10:00**. Paste:
 ```text
-From: Neha Kapoor <neha.kapoor@initech.example>
+From: Omar <omar@globex.example>
 To: Kami Bicknell <kami@clarity.example>
-Cc: Arjun Rao <arjun.rao@initech.example>
-Subject: Build servers for our CI pipeline
-Date: Mon, 21 Sep 2026 10:00:00 +0530
+Cc: Ravi Menon <ravi.menon@globex.example>; Lena Park <lena.park@globex.example>
+Subject: PO for 10 GTX Pro workstations - two blockers
+Date: Sat, 26 Sep 2026 10:00:00 +0530
 
 Hi Kami,
 
-Our CI builds take 55 minutes and developers wait on them all day. We want builds under 15 minutes before our
-product release on 30 October. We are looking at 4 GTX Pro build servers.
+The PO for the 10 GTX Pro workstations is ready, but two things block it.
 
-Arjun Rao, our finance head, has a quote from Nexbyte that is 10% cheaper, so price will come up. Our IT team will
-also need your security whitepaper before anything connects to our network.
+First, our procurement policy requires net-60 payment terms for a purchase this size. Your quote says net-30.
 
-Can we do a call on Wednesday?
+Second, Ravi Menon, our Head of Infrastructure, must sign off the rack and power requirements and an installation
+date before anything ships. Our only maintenance window this month is 2 October.
 
-Neha Kapoor
-CTO, Initech Labs
+Omar
+Finance Lead, Globex Systems
 ```
-**Preview** → the type shows **Email**, the title is the subject, and the date is 21 Sep → **Remember**.
+**Preview** → type **Email**, title = the subject, date 26 Sep → **Remember**.
 
-✅ **Check:** the green box says *Remembered EM-01* and how many lessons went to the playbook. The Deal ledger panel
-now shows open items, for example the security whitepaper, with Neha and Arjun under "Where people stand".
+✅ **Check:** the green box says *Remembered EM-02*. The Deal ledger shows new open items (payment terms, Ravi's
+sign-off) and **Ravi Menon** appears under "Where people stand".
 
-### Step 3 — remember the discovery call
-**Add to memory → Paste text**, **Type: Call**, Happened on **23 Sep 2026, 15:00**. Add participants: *Kami
-Bicknell · Account Executive · ours*, *Neha Kapoor · CTO · customer*, *Arjun Rao · Finance Head · customer*. Paste:
+### Step 3 — remember the call
+**Add to memory → Paste text**, **Type: Call**, Happened on **27 Sep 2026, 11:00**. Add participants: *Kami
+Bicknell · Account Executive · ours*, *Omar · Finance Lead · customer*, *Ravi Menon · Head of Infrastructure ·
+customer*, *Lena Park · Verification Lead · customer*. Paste:
 ```text
-Kami: Thanks for the time. What does success look like for you?
-Neha: CI builds under 15 minutes, live before our 30 October release.
-Arjun: And the numbers have to work. Nexbyte is 10% cheaper per server. I need a 3-year cost comparison against renting cloud build machines.
-Kami: I'll send the 3-year comparison by 25 September, using your real build hours.
-Neha: Our IT lead also needs the security whitepaper before any hardware connects.
-Kami: I'll send the whitepaper tomorrow, 24 September.
-Arjun: If the comparison holds up, I can take it to the CFO on 28 September.
+Kami: Thanks for making time. Let's close the two open points: payment terms and installation.
+Omar: Net-60 is our policy for purchases this size. Net-30 will not get through procurement.
+Kami: I can't approve net-60 myself. I'll ask my manager, Summer, for net-45 and confirm by 28 September.
+Ravi: Before anything ships I need the rack and power specs for the GTX Pro. Our only maintenance window is 2 October.
+Kami: I'll send the specs today and an installation plan for 2 October by 28 September.
+Lena: My team is ready to start verification runs the day it is installed.
+Omar: If net-45 is approved, I'll raise the PO the same day.
 ```
-**Preview** → each line is labelled Kami (ours) or Neha / Arjun (customer); fix any wrong side → **Remember**.
+**Preview** → each line is Kami (ours) or Omar / Ravi / Lena (customer); fix any wrong side → **Remember**.
 
-Now ask, chips **Negotiation** + **Price objection**:
+Now ask, chips **Negotiation** + **Get the PO signed**:
 ```text
-Arjun says Nexbyte is 10% cheaper. What's still open and how do I handle the price?
+Omar wants net-60 payment terms. What's open, and how do I handle it?
 ```
 ✅ **Check**
-- **Shown first:** the objection answer — the 10% price gap, **open**, raised by Arjun, with a suggested reply — and
-  the playbook lessons right below it (bundle support instead of discounting, learned on other accounts).
-- **More details → Open items** has the whitepaper (due 24 Sep) and the 3-year comparison (due 25 Sep), owner Kami,
-  each citing **CALL-01**.
-- **Stakeholder map:** Neha and Arjun only — **Kami is not in it** (our own side is filtered out).
-- Click **CALL-01** on any line: the drawer shows the exact call text.
+- **Shown first:** the objection answer — payment terms, **open**, raised by Omar, with a suggested reply.
+- **More details → Open items:** the net-45 approval and the installation plan (due 28 Sep) and the rack and power
+  specs, owner Kami, each citing **CALL-01**.
+- **Stakeholder map:** Omar, Ravi and Lena — **not Kami, not Summer** (our own side is filtered out).
+- Click **CALL-01** on any line: the drawer shows the exact call.
 - No "X%" or "[amount]" placeholders anywhere.
 
 ### Step 4 — a WhatsApp chat that closes things (current state stays current)
-**Add to memory → Paste text** (type detects WhatsApp; each day becomes its own document). Paste:
+**Add to memory → Paste text** (the type detects WhatsApp; each day becomes its own document). Paste:
 ```text
-24/09/2026, 18:05 - Kami Bicknell: Neha, the security whitepaper is in your inbox.
-25/09/2026, 11:20 - Neha Kapoor: IT has reviewed the whitepaper and approved it. Thanks!
-25/09/2026, 16:40 - Kami Bicknell: Arjun, the 3-year comparison is sent. We can't cut the price, but 3-year support is included at no extra cost.
-26/09/2026, 10:15 - Arjun Rao: The comparison works, payback is 13 months. Support included instead of a discount is fine for us. Taking it to the CFO on the 28th.
+27/09/2026, 16:10 - Kami Bicknell: Ravi, the rack and power specs for the GTX Pro are in your inbox.
+27/09/2026, 18:45 - Ravi Menon: The specs fit our racks and power budget. 2 October works for installation.
+28/09/2026, 10:05 - Kami Bicknell: Omar, Summer approved net-45 payment terms. The installation plan for 2 October is in your inbox.
+28/09/2026, 10:30 - Omar: Net-45 works for procurement. I'm raising the PO for 10 units today.
 ```
-**Preview** → three documents (`WA-2026-09-24`, `-25`, `-26`); set Neha and Arjun to **customer** if needed → tick
+**Preview** → two documents (`WA-2026-09-27`, `WA-2026-09-28`); set Ravi and Omar to **customer** if needed → tick
 **This follows the brief "…"** → **Remember**.
 
 Ask (**Follow-up** chip):
@@ -456,54 +454,53 @@ Ask (**Follow-up** chip):
 Is anything still open? Where do we stand?
 ```
 ✅ **Check**
-- **Shown first:** Open items. The whitepaper and the 3-year comparison are **gone** from the list. What remains is
-  the CFO decision on 28 September.
-- **Deal ledger** (right): whitepaper and comparison under **Done / resolved**, the price objection **resolved**,
-  each citing a `WA-2026-09-…` document.
-- **Where people stand:** Neha and Arjun are supporters (or champions), not blockers.
+- **Shown first:** Open items. The specs, the installation plan and the net-45 approval are **gone** from the list;
+  what remains is the PO and the installation on 2 October.
+- **Deal ledger** (right): specs, plan and net-45 under **Done / resolved**; the payment-terms objection
+  **resolved**; each citing a `WA-2026-09-…` document.
+- **Where people stand:** Omar, Ravi and Lena are supporters or champions, not blockers.
 
 ### Step 5 — a draft email (the answer shape follows the question)
 Ask:
 ```text
-Draft a follow-up email to Neha and Arjun before the CFO meeting.
+Draft a follow-up email to Omar, Ravi and Lena confirming the next steps.
 ```
 ✅ **Check:** the **email draft is shown first** with a **Copy** button; everything else sits under *More details*.
-The email mentions the CFO meeting on 28 September and claims nothing that memory does not say (no "attached",
-no invented approvals).
+It mentions net-45 and installation on 2 October, and claims nothing memory does not say.
 
 ### Step 6 — the outcome (the company learns)
-**Add to memory → Paste text**, **Type: Outcome**, Happened on **28 Sep 2026, 18:00**, tick **This follows the brief**:
+**Add to memory → Paste text**, **Type: Outcome**, Happened on **28 Sep 2026, 17:00**, tick **This follows the brief**:
 ```text
-Result: Won. The CFO approved 4 GTX Pro build servers with 3-year support included. What worked: including 3-year support instead of the 10% discount, and sending the security whitepaper before the price discussion.
+Result: Won. PO-GX-5521 received for 10 GTX Pro workstations with 3-year support. What worked: offering net-45 payment terms with manager approval instead of refusing net-60, and sending the rack specs and an installation plan before the infrastructure sign-off. Next step: install on 2 October.
 ```
 ✅ **Check**
 - The green box reports new lessons added to the company playbook.
 - **Deal ledger:** stage **won**.
-- **Company playbook** page → filter **what worked** → a new lesson marked **confirmed by outcome** that names no
-  customer or person.
+- **Company playbook** page → filter **what worked** → a new lesson about payment terms marked **confirmed by
+  outcome**, naming no customer or person.
 
 ### Step 7 — the lesson helps another customer
-Open **Globex Systems**, chips **Negotiation** + **Price objection**, ask:
+Open **Acme Corporation**, chips **Negotiation** + **Get the PO signed**, ask:
 ```text
-Omar says a competitor is cheaper and wants a discount. How do I handle it?
+A customer's procurement insists on net-60 payment terms. How do I handle it?
 ```
-✅ **Check:** the objection answer cites **amber `INS-…` lessons**, including support-instead-of-discount. That is
-the knowledge from Initech, Acme and Brightline reaching a different account.
+✅ **Check:** the objection answer cites **amber `INS-…` lessons**, including the payment-terms compromise learned
+on Globex a minute ago. Click the amber chip: the lesson names no customer.
 
 ### Quick negative checks
 | Try | Expected |
 |---|---|
 | Log in with a wrong password | "Wrong email or password" |
 | As Kami, open `…/#/customer/brightline` in the address bar | "This customer is not assigned to you" |
-| Paste the Step 2 email again on Initech | "This email is already in memory." |
+| Paste the Step 2 email again on Globex | "This email is already in memory." |
 | Paste the Step 4 chat again | "All … messages in this chat are already in memory." |
 | As Kami, open **Settings** | The prompt is read-only ("Only an admin can change…") |
 
 ### If a check fails
-Note the customer id, the question and the time, and open **Agent memory work** under the brief: it lists what was
-recalled, whether the ledger was read, and any retry. Answers are written by an AI, so wording differs between runs;
-the checks above are about **which items are open or closed, who is on which side, and which sources are cited** —
-those should not change.
+Note the question and the time, and open **Agent memory work** under the brief: it lists what was recalled, whether
+the ledger was read, and any retry. Answers are written by an AI, so wording differs between runs; the checks above
+are about **which items are open or closed, who is on which side, and which sources are cited** — those should not
+change.
 
 ## 9. Limits and known issues (be honest in the write-up)
 

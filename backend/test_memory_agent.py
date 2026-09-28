@@ -225,5 +225,11 @@ assert core._focus("Is anything still open on Acme?", "call_prep") == "status"
 assert core._focus("Who are the stakeholders and how do I win each one?", "status") == "stakeholders"
 assert core._focus("I have a call with them tomorrow. What should I focus on?", "call_prep") == "call_prep"
 assert core._focus("Tell me something useful", "risks") == "risks"
+assert core._focus("Omar wants net-60 payment terms. What is open and how do I handle it?", "status") == "objection"
+
+# 23. A person with no evidence (the model echoing our team list) is not kept in the ledger
+upd2 = LedgerUpdate(summary="s", stage="closing", items=[], people=[
+    LedgerPerson(name="Rahul Mehta", role="Sales Manager", side="ours", stance="neutral", position="No update", sources=[])])
+assert not any(p.name == "Rahul Mehta" for p in lg.merge(None, upd2, {"CALL-04"}, ["Rahul Mehta"]).people)
 
 print("ok")

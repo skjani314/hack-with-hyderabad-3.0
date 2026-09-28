@@ -423,7 +423,8 @@ def _apply_ledger(rep: Report, current: Ledger | None, ctx: CustomerContext, cus
 
 FOCUS_RULES = [  # unambiguous wording decides in code; everything else keeps the model's choice
     ("email", r"\b(draft|write|compose)\b.*\b(email|mail|message|note)\b|\bfollow-?up (email|mail)\b"),
-    ("objection", r"\b(discount|cheaper|too expensive|price objection|push ?back|objection)\b"),
+    ("objection", r"\b(discount|cheaper|too expensive|price objection|push ?back|objection|payment terms|net-?\d+|"
+                  r"how do i (handle|answer|respond))\b"),
     ("stakeholders", r"\b(stakeholders?|who (do|should) i|decision makers?|champion)\b"),
     ("call_prep", r"\b(prep(are)?|script|call plan|agenda)\b"),
     ("status", r"\b(still open|what'?s open|anything open|where (do )?we stand|status|pending|outstanding)\b"),
