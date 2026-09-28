@@ -735,6 +735,118 @@
     }
    }
   },
+  "/api/customers/{customer_id}/ledger": {
+   "get": {
+    "summary": "Get Ledger",
+    "description": "The customer's current state: open and closed items and where each person stands.",
+    "operationId": "get_ledger_api_customers__customer_id__ledger_get",
+    "parameters": [
+     {
+      "name": "customer_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Customer Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Ledger"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/customers/{customer_id}/ledger/rebuild": {
+   "post": {
+    "summary": "Rebuild Ledger",
+    "description": "Rebuild from every stored interaction in date order (existing customers, or after fixing old data).",
+    "operationId": "rebuild_ledger_api_customers__customer_id__ledger_rebuild_post",
+    "parameters": [
+     {
+      "name": "customer_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Customer Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Ledger"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
   "/api/customers/{customer_id}/profile": {
    "get": {
     "summary": "Profile",
@@ -1427,6 +1539,16 @@
       "title": "Extraction Ok",
       "default": true
      },
+     "ledger": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/Ledger"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
      "trace": {
       "items": {
        "$ref": "#/components/schemas/TraceStep"
@@ -1709,6 +1831,209 @@
     ],
     "title": "JobOut"
    },
+   "Ledger": {
+    "properties": {
+     "summary": {
+      "type": "string",
+      "title": "Summary",
+      "default": ""
+     },
+     "stage": {
+      "type": "string",
+      "title": "Stage",
+      "default": "discovery"
+     },
+     "items": {
+      "items": {
+       "$ref": "#/components/schemas/LedgerItem"
+      },
+      "type": "array",
+      "title": "Items",
+      "default": []
+     },
+     "people": {
+      "items": {
+       "$ref": "#/components/schemas/LedgerPerson"
+      },
+      "type": "array",
+      "title": "People",
+      "default": []
+     },
+     "based_on": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Based On",
+      "default": []
+     },
+     "updated_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Updated At"
+     }
+    },
+    "type": "object",
+    "title": "Ledger",
+    "description": "Stored per customer (MongoDB `ledgers`). Every item has a stable id and cites the messages behind it."
+   },
+   "LedgerItem": {
+    "properties": {
+     "id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Id",
+      "description": "The existing item's id when updating it (e.g. L-03); null for a new item"
+     },
+     "kind": {
+      "type": "string",
+      "enum": [
+       "commitment",
+       "objection",
+       "requirement",
+       "risk",
+       "decision"
+      ],
+      "title": "Kind"
+     },
+     "text": {
+      "type": "string",
+      "title": "Text",
+      "description": "One sentence, current wording (update the text when the item changes)"
+     },
+     "owner": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Owner",
+      "description": "Who must act: a person's name, or null"
+     },
+     "due": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Due",
+      "description": "YYYY-MM-DD when a date is known, else null"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "open",
+       "at_risk",
+       "overdue",
+       "done",
+       "resolved",
+       "dropped"
+      ],
+      "title": "Status",
+      "description": "done/resolved only when a message shows it happened or was accepted; a promise keeps it open; dropped when replaced or no longer relevant"
+     },
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Sources",
+      "description": "Ids of the interactions behind the current status, newest last"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "id",
+     "kind",
+     "text",
+     "owner",
+     "due",
+     "status",
+     "sources"
+    ],
+    "title": "LedgerItem"
+   },
+   "LedgerPerson": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "role": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Role"
+     },
+     "side": {
+      "type": "string",
+      "enum": [
+       "ours",
+       "customer"
+      ],
+      "title": "Side"
+     },
+     "stance": {
+      "type": "string",
+      "enum": [
+       "champion",
+       "supporter",
+       "neutral",
+       "skeptic",
+       "blocker"
+      ],
+      "title": "Stance"
+     },
+     "position": {
+      "type": "string",
+      "title": "Position",
+      "description": "What they want or their latest position, one sentence"
+     },
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Sources"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "name",
+     "role",
+     "side",
+     "stance",
+     "position",
+     "sources"
+    ],
+    "title": "LedgerPerson"
+   },
    "LoginIn": {
     "properties": {
      "email": {
@@ -1754,6 +2079,18 @@
       "type": "string",
       "title": "Objection"
      },
+     "ledger_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Ledger Id",
+      "description": "The DEAL LEDGER objection id this is about (e.g. L-04), or null"
+     },
      "raised_by": {
       "anyOf": [
        {
@@ -1790,6 +2127,7 @@
     "type": "object",
     "required": [
      "objection",
+     "ledger_id",
      "raised_by",
      "status",
      "response",

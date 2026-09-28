@@ -137,7 +137,7 @@ the UI polls, as described in the pipeline doc.
 | `observation_scopes` | retain item | Which tag groups observations are built for (`combined` default, per-tag, or `shared`) | Company bank: per `industry` / `role` so conclusions form per segment |
 | Consolidation strategies | bank config | Per-scope instructions for observations | Company bank: *"Record only generalised trends. Never name a specific company or person."* (the docs show this exact pattern) |
 | Retain custom instructions / mission | bank config | What the extraction LLM looks for | Sales-specific instructions (the repo already sets `retain_custom_instructions`) |
-| `enable_observations` | bank config | Consolidation on/off | On |
+| `enable_observations` | bank config | Consolidation on/off | **Off for customer banks, on for `company`** (2026-09-29): the deal ledger keeps customer state with sources ([`deal-ledger.md`](./deal-ledger.md)) |
 
 ## 8. Cost check (Hindsight Cloud, $50 promo credit)
 

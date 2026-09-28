@@ -33,6 +33,7 @@ class CustomerContext(BaseModel):
     name: str
     industry: str
     exec_name: str
+    our_team: list[str] = []           # names of our own people (every user): never shown as customer stakeholders
 
 
 # ---------- interactions (every input is normalised to this) ----------
@@ -170,6 +171,52 @@ class Extraction(Strict):
     next_steps: list[str]
 
 
+# ---------- deal ledger: the customer's current state, kept up to date on every upload ----------
+
+LedgerStatus = Literal["open", "at_risk", "overdue", "done", "resolved", "dropped"]
+
+
+class LedgerItem(Strict):
+    id: str | None = Field(description="The existing item's id when updating it (e.g. L-03); null for a new item")
+    kind: Literal["commitment", "objection", "requirement", "risk", "decision"]
+    text: str = Field(description="One sentence, current wording (update the text when the item changes)")
+    owner: str | None = Field(description="Who must act: a person's name, or null")
+    due: str | None = Field(description="YYYY-MM-DD when a date is known, else null")
+    status: LedgerStatus = Field(description="done/resolved only when a message shows it happened or was accepted; "
+                                             "a promise keeps it open; dropped when replaced or no longer relevant")
+    sources: list[str] = Field(description="Ids of the interactions behind the current status, newest last")
+
+
+class LedgerPerson(Strict):
+    name: str
+    role: str | None
+    side: Literal["ours", "customer"]
+    stance: Literal["champion", "supporter", "neutral", "skeptic", "blocker"]
+    position: str = Field(description="What they want or their latest position, one sentence")
+    sources: list[str]
+
+
+class LedgerUpdate(Strict):
+    """What the LLM returns: the whole ledger after applying the new interactions."""
+    summary: str = Field(description="Where the deal stands now, 2 sentences")
+    stage: Literal["discovery", "evaluation", "negotiation", "closing", "won", "lost"]
+    items: list[LedgerItem]
+    people: list[LedgerPerson]
+
+
+class Ledger(BaseModel):
+    """Stored per customer (MongoDB `ledgers`). Every item has a stable id and cites the messages behind it."""
+    summary: str = ""
+    stage: str = "discovery"
+    items: list[LedgerItem] = []
+    people: list[LedgerPerson] = []
+    based_on: list[str] = []           # every interaction id folded into this ledger, oldest first
+    updated_at: datetime | None = None
+
+    def open_items(self) -> list[LedgerItem]:
+        return [i for i in self.items if i.status in ("open", "at_risk", "overdue")]
+
+
 # ---------- agent results ----------
 
 class MemoryCreated(BaseModel):
@@ -185,6 +232,7 @@ class IngestResult(BaseModel):
     summary: str = ""
     next_steps: list[str] = []
     extraction_ok: bool = True
+    ledger: Ledger | None = None       # the customer's ledger after this upload (the backend stores it)
     trace: list[TraceStep] = []
 
 
@@ -215,6 +263,7 @@ class OpenItem(Strict):
 
 class ObjectionPlay(Strict):
     objection: str
+    ledger_id: str | None = Field(description="The DEAL LEDGER objection id this is about (e.g. L-04), or null")
     raised_by: str | None
     status: Literal["open", "resolved"]
     response: str = Field(description="What to say back, first person, natural spoken words")

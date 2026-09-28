@@ -38,25 +38,30 @@ def approx_tokens(text: str) -> int:
     return len(text) // 4 + 1
 
 
-def _key() -> str:
-    key = os.getenv("GROQ_API_KEY")
-    if not key:
-        raise ConfigMissing("GROQ_API_KEY is not set")
-    return key
+def keys() -> list[str]:
+    """Groq keys in rotation order: GROQ_API_KEYS (comma-separated), else GROQ_API_KEY. Each key has its own
+    per-minute and per-day budget (the free tier allows 200,000 tokens per day per model)."""
+    ks = [k.strip() for k in os.getenv("GROQ_API_KEYS", "").split(",") if k.strip()]
+    ks = ks or [k for k in [os.getenv("GROQ_API_KEY", "").strip()] if k]
+    if not ks:
+        raise ConfigMissing("GROQ_API_KEY (or GROQ_API_KEYS) is not set")
+    return list(dict.fromkeys(ks))
 
 
 def _model(effort_gpt_oss: str = "low"):
-    provider = GroqProvider(api_key=_key())
+    """Every model on every key, best model first: gpt-oss-120b on key 1, key 2, key 3, then the smaller models.
+    A key that has hit its limit fails fast and the next one answers."""
+    providers = [GroqProvider(api_key=k) for k in keys()]
     models = []
     for name in MODELS:
-        # pydantic-ai's qwen profile disables native JSON schema output, but Groq supports strict mode for this
-        # model (console.groq.com/docs/structured-outputs), so we switch it on.
-        profile = {**dict(provider.model_profile(name) or {}), "supports_json_schema_output": True}
-        # gpt-oss accepts graded effort (low/medium/high); qwen3 only none/default. Low/none keeps hidden
-        # reasoning from eating the per-minute token budget; the schema does the structuring.
-        effort = effort_gpt_oss if name.startswith("openai/gpt-oss") else "none"
-        models.append(GroqModel(name, provider=provider, profile=profile,
-                                settings={"temperature": 0.2, "groq_reasoning_effort": effort}))
+        for provider in providers:
+            # pydantic-ai's qwen profile disables native JSON schema output, but Groq supports strict mode for this
+            # model (console.groq.com/docs/structured-outputs), so we switch it on.
+            profile = {**dict(provider.model_profile(name) or {}), "supports_json_schema_output": True}
+            # gpt-oss accepts graded effort (low/medium/high); qwen3 only none/default.
+            effort = effort_gpt_oss if name.startswith("openai/gpt-oss") else "none"
+            models.append(GroqModel(name, provider=provider, profile=profile,
+                                    settings={"temperature": 0.2, "groq_reasoning_effort": effort}))
     return FallbackModel(*models)
 
 

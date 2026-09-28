@@ -7,6 +7,7 @@ from .core import (  # noqa: F401
     get_profile,                   # A5
     list_company_insights,         # A6
     list_sources,
+    rebuild_ledger,                # the deal ledger from scratch (existing customers, repairs)
     source_text,
 )
 from .errors import AgentError  # noqa: F401

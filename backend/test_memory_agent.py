@@ -98,7 +98,8 @@ def strict(schema, defs):
             strict(schema[key], defs)
     for alt in schema.get("anyOf", []):
         strict(alt, defs)
-for model in (Extraction, ReportDraft):
+from contracts import LedgerUpdate
+for model in (Extraction, ReportDraft, LedgerUpdate):
     js = model.model_json_schema()
     strict(js, js.get("$defs", {}))
 
@@ -164,5 +165,57 @@ got, n, _ = parsing.parse_whatsapp(pasted, set(), set())
 assert [i.document_id for i in got] == ["WA-2026-09-22", "WA-2026-09-23"] and n == 3, got
 assert got[0].turns[0].text.endswith("3-year support included, delivery by 6 October."), got[0].turns[0].text
 assert parsing.detect_channel("22/09/2026 is when we met. Send the quote.") != "whatsapp"
+
+# 19. Ledger merge: code guarantees stable ids, nothing silently deleted, real sources only, our people are ours
+from contracts import Ledger, LedgerItem, LedgerPerson, LedgerUpdate
+from memory_agent import ledger as lg
+old = Ledger(items=[LedgerItem(id="L-01", kind="commitment", text="Send questionnaire to Priya", owner="Kami",
+                               due="2026-08-30", status="open", sources=["CALL-02"]),
+                    LedgerItem(id="L-02", kind="objection", text="10% discount request", owner=None, due=None,
+                               status="open", sources=["CALL-03"])],
+             people=[LedgerPerson(name="Priya Nair", role="IT", side="customer", stance="blocker", position="waits",
+                                  sources=["CALL-02"])], based_on=["CALL-02", "CALL-03"])
+upd = LedgerUpdate(summary="s", stage="closing", items=[
+    LedgerItem(id="L-01", kind="commitment", text="Questionnaire received by Priya", owner="Kami", due=None,
+               status="done", sources=["CALL-04"]),
+    LedgerItem(id=None, kind="commitment", text="Send firmware version", owner="Kami", due="2026-09-20",
+               status="open", sources=["CALL-04"]),
+    LedgerItem(id="L-77", kind="risk", text="made-up", owner=None, due=None, status="open", sources=["EM-99"])],
+    people=[LedgerPerson(name="Summer Sewald", role="Sales Manager", side="customer", stance="supporter",
+                         position="approves terms", sources=["CALL-04"]),
+            LedgerPerson(name="Priya", role="IT", side="customer", stance="neutral", position="approves once docs arrive",
+                         sources=["CALL-04"])])
+new = lg.merge(old, upd, {"CALL-02", "CALL-03", "CALL-04"}, ["Kami Bicknell", "Summer Sewald"])
+ids = {i.id: i for i in new.items}
+assert ids["L-01"].status == "done" and ids["L-01"].sources == ["CALL-04"], ids["L-01"]
+assert "L-03" in ids and ids["L-03"].text == "Send firmware version", ids          # new item gets the next id
+assert "L-02" in ids and ids["L-02"].status == "open"                              # forgotten by the model: kept
+assert "L-77" not in ids and not any(i.text == "made-up" for i in new.items)      # no real source: refused
+assert next(p for p in new.people if p.name == "Summer Sewald").side == "ours"     # our manager, forced by code
+assert lg.is_ours("Kami", ["Kami Bicknell"]) and not lg.is_ours("Priya Nair", ["Kami Bicknell"])
+assert [i.id for i in new.open_items()] == ["L-03", "L-02"] or {i.id for i in new.open_items()} == {"L-02", "L-03"}
+
+# 20. Placeholder figures are caught in code
+from contracts import ReportDraft
+def draft_with(text):
+    step = {"say": text, "sources": []}
+    return ReportDraft(answer="a", summary="s", deal_stage="closing", deal_health="on_track", health_reason="r",
+                       what_to_ask=[], open_items=[], stakeholders=[], objections=[], risks=[], playbook_tips=[],
+                       call_plan={k: step for k in ("opening", "recap", "discovery", "value", "objections", "close")},
+                       next_steps=[], follow_up_email="")
+assert core._placeholders(draft_with("Our solution delivers X% better performance and Y% lower cost")) == ["X%", "Y%"]
+assert core._placeholders(draft_with("Payback in 11 months, 31% lower cost per parcel")) == []
+assert core._placeholders(draft_with("Save [amount] per year, TBD")) == ["TBD", "[amount]"]
+
+# 21. A duplicate of a finished item closes with it (the model does not always merge them)
+dup = [LedgerItem(id="L-04", kind="commitment", text="Send completed hardware security questionnaire", owner="Kami",
+                  due=None, status="done", sources=["CALL-04"]),
+       LedgerItem(id="L-13", kind="requirement", text="Complete and return 30-question hardware security questionnaire",
+                  owner=None, due=None, status="overdue", sources=["CALL-02"]),
+       LedgerItem(id="L-15", kind="commitment", text="Send firmware version and drive-wipe certificate sample",
+                  owner="Kami", due=None, status="open", sources=["CALL-04"])]
+lg._close_duplicates(dup)
+assert dup[1].status == "done" and dup[1].sources == ["CALL-02", "CALL-04"], dup[1]
+assert dup[2].status == "open"   # a different deliverable stays open
 
 print("ok")

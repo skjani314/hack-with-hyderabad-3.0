@@ -203,6 +203,46 @@ export interface paths {
         patch?: never;
         trace?: never;
     };
+    "/api/customers/{customer_id}/ledger": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        /**
+         * Get Ledger
+         * @description The customer's current state: open and closed items and where each person stands.
+         */
+        get: operations["get_ledger_api_customers__customer_id__ledger_get"];
+        put?: never;
+        post?: never;
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
+    "/api/customers/{customer_id}/ledger/rebuild": {
+        parameters: {
+            query?: never;
+            header?: never;
+            path?: never;
+            cookie?: never;
+        };
+        get?: never;
+        put?: never;
+        /**
+         * Rebuild Ledger
+         * @description Rebuild from every stored interaction in date order (existing customers, or after fixing old data).
+         */
+        post: operations["rebuild_ledger_api_customers__customer_id__ledger_rebuild_post"];
+        delete?: never;
+        options?: never;
+        head?: never;
+        patch?: never;
+        trace?: never;
+    };
     "/api/customers/{customer_id}/profile": {
         parameters: {
             query?: never;
@@ -421,6 +461,7 @@ export interface components {
              * @default true
              */
             extraction_ok: boolean;
+            ledger?: components["schemas"]["Ledger"] | null;
             /**
              * Trace
              * @default []
@@ -552,6 +593,102 @@ export interface components {
             /** Error */
             error?: string | null;
         };
+        /**
+         * Ledger
+         * @description Stored per customer (MongoDB `ledgers`). Every item has a stable id and cites the messages behind it.
+         */
+        Ledger: {
+            /**
+             * Summary
+             * @default
+             */
+            summary: string;
+            /**
+             * Stage
+             * @default discovery
+             */
+            stage: string;
+            /**
+             * Items
+             * @default []
+             */
+            items: components["schemas"]["LedgerItem"][];
+            /**
+             * People
+             * @default []
+             */
+            people: components["schemas"]["LedgerPerson"][];
+            /**
+             * Based On
+             * @default []
+             */
+            based_on: string[];
+            /** Updated At */
+            updated_at?: string | null;
+        };
+        /** LedgerItem */
+        LedgerItem: {
+            /**
+             * Id
+             * @description The existing item's id when updating it (e.g. L-03); null for a new item
+             */
+            id: string | null;
+            /**
+             * Kind
+             * @enum {string}
+             */
+            kind: "commitment" | "objection" | "requirement" | "risk" | "decision";
+            /**
+             * Text
+             * @description One sentence, current wording (update the text when the item changes)
+             */
+            text: string;
+            /**
+             * Owner
+             * @description Who must act: a person's name, or null
+             */
+            owner: string | null;
+            /**
+             * Due
+             * @description YYYY-MM-DD when a date is known, else null
+             */
+            due: string | null;
+            /**
+             * Status
+             * @description done/resolved only when a message shows it happened or was accepted; a promise keeps it open; dropped when replaced or no longer relevant
+             * @enum {string}
+             */
+            status: "open" | "at_risk" | "overdue" | "done" | "resolved" | "dropped";
+            /**
+             * Sources
+             * @description Ids of the interactions behind the current status, newest last
+             */
+            sources: string[];
+        };
+        /** LedgerPerson */
+        LedgerPerson: {
+            /** Name */
+            name: string;
+            /** Role */
+            role: string | null;
+            /**
+             * Side
+             * @enum {string}
+             */
+            side: "ours" | "customer";
+            /**
+             * Stance
+             * @enum {string}
+             */
+            stance: "champion" | "supporter" | "neutral" | "skeptic" | "blocker";
+            /**
+             * Position
+             * @description What they want or their latest position, one sentence
+             */
+            position: string;
+            /** Sources */
+            sources: string[];
+        };
         /** LoginIn */
         LoginIn: {
             /** Email */
@@ -569,6 +706,11 @@ export interface components {
         ObjectionPlay: {
             /** Objection */
             objection: string;
+            /**
+             * Ledger Id
+             * @description The DEAL LEDGER objection id this is about (e.g. L-04), or null
+             */
+            ledger_id: string | null;
             /** Raised By */
             raised_by: string | null;
             /**
@@ -1368,6 +1510,72 @@ export interface operations {
                 };
                 content: {
                     "application/json": components["schemas"]["RequestOut"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    get_ledger_api_customers__customer_id__ledger_get: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ledger"];
+                };
+            };
+            /** @description Validation Error */
+            422: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["HTTPValidationError"];
+                };
+            };
+        };
+    };
+    rebuild_ledger_api_customers__customer_id__ledger_rebuild_post: {
+        parameters: {
+            query?: never;
+            header?: {
+                authorization?: string | null;
+            };
+            path: {
+                customer_id: string;
+            };
+            cookie?: never;
+        };
+        requestBody?: never;
+        responses: {
+            /** @description Successful Response */
+            200: {
+                headers: {
+                    [name: string]: unknown;
+                };
+                content: {
+                    "application/json": components["schemas"]["Ledger"];
                 };
             };
             /** @description Validation Error */

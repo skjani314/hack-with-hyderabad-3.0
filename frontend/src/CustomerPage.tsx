@@ -4,6 +4,7 @@ import {
   sourceText, type Channel, type CustomerDetail, type IngestResult, type Insight, type Interaction, type Participant,
   type Preview, type Profile, type PromptPiece, type RequestOut, type RequestRow,
 } from './api'
+import LedgerPanel from './LedgerPanel'
 import ReportView from './ReportView'
 import { CHANNEL, ChannelTag, ErrorText, MemoryTrace, Panel, SourceChips, Tip, errMsg, ghost, input, pill, primary } from './ui'
 
@@ -40,7 +41,10 @@ export default function CustomerPage({ id }: { id: string }) {
           <AddToMemory customerId={id} lastRequest={lastRequest} onSaved={() => setVersion(v => v + 1)} />
         </div>
         <Ask customerId={id} onSource={setSource} onReport={setLastRequest} empty={!detail.interactions.length} />
-        <ProfilePanel customerId={id} version={version} empty={!detail.interactions.length} onSource={setSource} />
+        <div className="flex min-w-0 flex-col gap-5">
+          <LedgerPanel customerId={id} version={version} onSource={setSource} />
+          <ProfilePanel customerId={id} version={version} empty={!detail.interactions.length} onSource={setSource} />
+        </div>
       </div>
       {source && <SourceDrawer key={source} customerId={id} sourceId={source} onClose={() => setSource(null)} />}
     </div>

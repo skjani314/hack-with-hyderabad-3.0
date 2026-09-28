@@ -321,3 +321,14 @@ on Vercel. Options:
 - New agent errors: `NotFound` (404), `LLMRequestTooLarge` (413). `LLMRateLimited` (429) is raised only after one
   server-side wait of up to 25 s for Groq's `retry-after`.
 - `Interaction.document_id` is validated: `^(CALL|EM|WA|CRM|NOTE|FILE|OUT)-[A-Za-z0-9-]{1,60}$`.
+
+### Deal ledger (2026-09-29)
+
+- New types: `Ledger`, `LedgerItem`, `LedgerPerson`, `LedgerUpdate` (LLM output, Groq-strict). `CustomerContext.our_team`
+  (all users' names). `IngestResult.ledger` (the ledger after the upload). `ObjectionPlay.ledger_id`.
+- Agent: `ingest_interaction(ctx, interactions, prior_report, current_ledger)` also updates the ledger;
+  `rebuild_ledger(ctx)`; `generate_report(..., current_ledger)` reads it first and sets open items, objection status,
+  stances and stage from it.
+- API: `GET /api/customers/{id}/ledger`, `POST /api/customers/{id}/ledger/rebuild`. The backend loads and stores the
+  ledger (MongoDB `ledgers`); the agent never touches MongoDB.
+- Design: [`deal-ledger.md`](./deal-ledger.md).

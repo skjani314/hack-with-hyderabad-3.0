@@ -32,6 +32,9 @@ RULES (always apply)
 - Every item's `sources` lists the ids it is based on, copied exactly from the memory lines. Customer claims cite
   customer ids; open_items cite customer ids only; playbook_tips cite INS ids. A date or fact is cited to the line it
   appears on, not to a nearby one.
+- The DEAL LEDGER is the current state and wins over anything below it: an item marked done, resolved or dropped
+  is finished and must not appear as open, pending or to-do. Each objection's `ledger_id` names its ledger item.
+  Stakeholders are the customer's people only, never our own team.
 - Later messages override earlier ones: if something was later sent, approved, replaced or resolved, it is done.
   MOST RECENT INTERACTIONS shows the newest state; check it before calling anything open or pending.
 - A promise is not a delivery: "I will send X" means X is still open until a later message says it was sent,

@@ -83,7 +83,7 @@ async def reset(spec: dict):
         except Exception as e:
             if "404" not in str(e):
                 raise
-    for coll in ("users", "customers", "requests", "jobs"):
+    for coll in ("users", "customers", "requests", "jobs", "ledgers"):
         await db[coll].delete_many({})
     print("cleared Mongo collections")
 
@@ -112,7 +112,8 @@ async def main():
             continue
         owner = users[c["owner"]]
         ctx = CustomerContext(customer_id=c["id"], bank_id=f"cust-{c['id']}", name=c["name"],
-                              industry=c["industry"], exec_name=owner["name"])
+                              industry=c["industry"], exec_name=owner["name"],
+                              our_team=[u["name"] for u in users.values()])
         await db.customers.update_one({"_id": c["id"]}, {"$set": {
             "name": c["name"], "industry": c["industry"], "bank_id": ctx.bank_id,
             "owner_user_id": str(owner["_id"]), "status": "active"},
@@ -136,6 +137,10 @@ async def main():
             print(f"  {', '.join(result.remembered):28} lessons +{len(result.company_insights)}"
                   f" (rejected {result.rejected_insights}){'' if result.extraction_ok else '  EXTRACTION FAILED'}")
         await db.customers.update_one({"_id": c["id"]}, {"$unset": {"profile_cache": ""}})
+        ledger = await with_retry(agent.rebuild_ledger, ctx)  # the deal's current state, from every interaction
+        await db.ledgers.replace_one({"_id": c["id"]}, {"_id": c["id"], "ledger": ledger.model_dump(mode="json")},
+                                     upsert=True)
+        print(f"  ledger: {len(ledger.items)} items, {len(ledger.open_items())} open")
     print("\ndone")
 
 

@@ -20,6 +20,8 @@ export type Insight = S['Insight']
 export type TraceStep = S['TraceStep']
 export type PromptPiece = S['PromptPiece']
 export type OrgSettings = S['OrgSettings']
+export type Ledger = S['Ledger']
+export type LedgerItem = S['LedgerItem']
 export type Channel = Interaction['channel']
 
 const BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
@@ -106,6 +108,9 @@ export const saveSettings = (main_prompt: string) => call<OrgSettings>('/api/set
 export const listRequests = (id: string) => call<RequestRow[]>(`/api/customers/${encodeURIComponent(id)}/requests`)
 export const getRequest = (id: string, rid: string) =>
   call<RequestOut>(`/api/customers/${encodeURIComponent(id)}/requests/${encodeURIComponent(rid)}`)
+export const getLedger = (id: string) => call<Ledger>(`/api/customers/${encodeURIComponent(id)}/ledger`)
+export const rebuildLedger = (id: string) =>
+  call<Ledger>(`/api/customers/${encodeURIComponent(id)}/ledger/rebuild`, { method: 'POST' })
 export const getProfile = (id: string) => call<Profile>(`/api/customers/${encodeURIComponent(id)}/profile`)
 export const listInsights = (industry?: string) =>
   call<Insight[]>(`/api/company/insights${industry ? `?industry=${encodeURIComponent(industry)}` : ''}`)

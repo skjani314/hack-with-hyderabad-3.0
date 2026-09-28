@@ -78,5 +78,6 @@ async def customer_context(customer_id: str, user: dict = Depends(current_user))
     c = await database().customers.find_one({"_id": customer_id})
     if not c:
         raise HTTPException(404, {"error": "unknown_customer", "message": f"No customer '{customer_id}'"})
+    team = [u["name"] async for u in database().users.find({}, {"name": 1})]  # our people: never customer stakeholders
     return CustomerContext(customer_id=c["_id"], bank_id=c["bank_id"], name=c["name"], industry=c["industry"],
-                           exec_name=user["name"])
+                           exec_name=user["name"], our_team=team)

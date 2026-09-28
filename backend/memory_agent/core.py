@@ -11,12 +11,13 @@ from datetime import datetime, timezone
 
 from contracts import (
     SCHEMA_VERSION, CustomerContext, Extraction, Insight, InsightFilters, IngestResult, Interaction,
-    InteractionPreview, MemoryCreated, Participant, Profile, ProfileDraft, RawInput, Report, ReportDraft,
-    SourceRow, TraceStep,
+    InteractionPreview, Ledger, MemoryCreated, OpenItem, Participant, Profile, ProfileDraft, RawInput, Report,
+    ReportDraft, SourceRow, TraceStep,
 )
 
+from . import ledger as ledger_mod
 from . import llm, memory, parsing, prompts, stt
-from .errors import InvalidInput, LLMRequestTooLarge
+from .errors import AgentError, InvalidInput, LLMRequestTooLarge
 from .memory import COMPANY_BANK, Fact
 
 IDS = re.compile(r"\[([A-Za-z]+-[\w-]+)\]")
@@ -214,7 +215,38 @@ def _advice_text(prior: Report | None) -> str:
 
 
 async def ingest_interaction(ctx: CustomerContext, interactions: list[Interaction],
-                             prior_report: Report | None = None) -> IngestResult:
+                             prior_report: Report | None = None, current: Ledger | None = None) -> IngestResult:
+    """Remember the interactions, split lessons into the company bank, then fold them into the deal ledger."""
+    result = await _ingest(ctx, interactions, prior_report)
+    known = {d["id"] for d in await _docs(ctx)} | set(result.remembered)
+    folded = [(it.document_id, it.occurred_at.isoformat(), parsing.render(it))
+              for it in sorted(interactions, key=lambda x: x.occurred_at)]
+    try:
+        result.ledger, steps = await ledger_mod.update(ctx, current, folded, known)
+        result.trace += steps
+    except AgentError as e:  # the upload is saved either way; the ledger catches up on the next one or a rebuild
+        result.trace.append(TraceStep(step="ledger", detail="not updated", result=e.message[:120]))
+    return result
+
+
+async def rebuild_ledger(ctx: CustomerContext) -> Ledger:
+    """Build the ledger from scratch by folding every stored interaction in date order (existing customers, repairs)."""
+    async with memory.client() as hc:
+        docs = await memory.documents(hc, ctx.bank_id)
+        docs.sort(key=lambda d: _when((d.get("document_metadata") or {}).get("occurred_at", "")))
+        folded = [(d["id"], (d.get("document_metadata") or {}).get("occurred_at", ""),
+                   await memory.document_text(hc, ctx.bank_id, d["id"])) for d in docs]
+    new, _ = await ledger_mod.update(ctx, None, folded, {d["id"] for d in docs})
+    return new
+
+
+async def _docs(ctx: CustomerContext) -> list[dict]:
+    async with memory.client() as hc:
+        return await memory.documents(hc, ctx.bank_id)
+
+
+async def _ingest(ctx: CustomerContext, interactions: list[Interaction],
+                  prior_report: Report | None = None) -> IngestResult:
     trace: list[TraceStep] = []
     remembered, insight_ids, rejected = [], [], 0
     summaries, next_steps, ok = [], [], True
@@ -354,9 +386,55 @@ def _latest(docs: list[dict], n: int = 3) -> list[str]:
     return out
 
 
+def _apply_ledger(rep: Report, current: Ledger | None, ctx: CustomerContext, customer_ids: set[str],
+                  trace: list[TraceStep]) -> None:
+    """The ledger is the current state, so these parts of the brief are set in code from it, not left to the model:
+    open items, each objection's status, each person's stance and side, and the deal stage."""
+    team = [ctx.exec_name, *ctx.our_team]
+    ours = {p.name for p in (current.people if current else []) if p.side == "ours"}
+    before = len(rep.stakeholders)
+    rep.stakeholders = [s for s in rep.stakeholders
+                        if not ledger_mod.is_ours(s.name, team) and not ledger_mod.is_ours(s.name, list(ours))]
+    if not current or not current.items:
+        if before != len(rep.stakeholders):
+            trace.append(TraceStep(step="ledger_check", result=f"removed {before - len(rep.stakeholders)} of our own"))
+        return
+    rep.deal_stage = current.stage  # type: ignore[assignment]
+    by_name = {ledger_mod._norm(p.name): p for p in current.people}
+    for s in rep.stakeholders:
+        p = by_name.get(ledger_mod._norm(s.name)) or next(
+            (v for k, v in by_name.items() if k.split(" ")[0] == ledger_mod._norm(s.name).split(" ")[0]), None)
+        if p:
+            s.stance = p.stance
+    status = {i.id: i.status for i in current.items}
+    for o in rep.objections:
+        if o.ledger_id in status:
+            o.status = "resolved" if status[o.ledger_id] in ("done", "resolved", "dropped") else "open"
+    canon = {k.upper(): k for k in customer_ids}
+    rep.open_items = [OpenItem(text=i.text, owner=i.owner, due=i.due,
+                               status=i.status if i.status in ("at_risk", "overdue") else "open",
+                               sources=[canon[s.upper()] for s in i.sources if s.upper() in canon])
+                      # to-dos only; standing requirements ("must fit the rack") stay in the ledger, not the list
+                      for i in current.open_items() if i.kind in ("commitment", "decision")]
+    trace.append(TraceStep(step="ledger_check", detail=f"{len(current.items)} ledger items",
+                           result=f"{len(rep.open_items)} open items from the ledger; removed "
+                                  f"{before - len(rep.stakeholders)} of our own from stakeholders"))
+
+
+PLACEHOLDER = re.compile(r"\b[XYZN]\s?%|\b[XYZN]x\b|\$\s?[XYZ]\b|\bTBD\b|\[(?:[^\]]*?)(?:amount|number|figure|value|%)\]"
+                         r"|\b[XYZN] (?:percent|hours|days|weeks|months)\b")
+
+
+def _placeholders(draft: ReportDraft) -> list[str]:
+    """Template filler like 'X% better' or '[amount]' that the model wrote instead of a real figure."""
+    return sorted({m.group(0) for m in PLACEHOLDER.finditer(draft.model_dump_json())})
+
+
 async def generate_report(ctx: CustomerContext, prompt: str, history: list[str] | None = None,
-                          pieces: list[str] | None = None, org_prompt: str | None = None) -> Report:
+                          pieces: list[str] | None = None, org_prompt: str | None = None,
+                          current: Ledger | None = None) -> Report:
     instructions, used = prompts.compose(ctx.exec_name, ctx.name, ctx.industry, pieces or [], org_prompt)
+    ledger_lines = ledger_mod.render(current).split("\n") if current and current.items else []
     async with memory.client() as hc:
         docs = await memory.documents(hc, ctx.bank_id)
         cust, comp, trace = await _recall_both(hc, ctx, prompt)
@@ -380,6 +458,7 @@ async def generate_report(ctx: CustomerContext, prompt: str, history: list[str] 
         cust_lines = _fit(candidates["cust"], int(size("cust") * scale))
         comp_lines = _fit(candidates["comp"], int(size("comp") * scale))
         sections = [
+            ("DEAL LEDGER (the current state; authoritative over anything below)", ledger_lines, "(not built yet)"),
             ("CONVERSATIONS IN MEMORY (oldest first)", convo, "(none yet)"),
             ("MOST RECENT INTERACTIONS (newest last; they override anything older)", latest, "(none yet)"),
             ("CUSTOMER MEMORY", cust_lines, "(empty: new customer)"),
@@ -410,6 +489,12 @@ async def generate_report(ctx: CustomerContext, prompt: str, history: list[str] 
                                result=f"memory context x{scale:.2f}"))
         draft = await llm.structured(ReportDraft, instructions, user, max_tokens=4000, effort="medium")
     trace.append(TraceStep(step="write_report", detail=f"pieces: {', '.join(used) or 'none'}"))
+    if found := _placeholders(draft):  # checked in code: a rule in the prompt did not stop "X% better"
+        trace.append(TraceStep(step="placeholder_retry", detail=", ".join(found)))
+        draft = await llm.structured(
+            ReportDraft, instructions, user + f"\n\nYour previous draft used placeholder figures ({', '.join(found)}). "
+            "Use only numbers that appear in memory above; where there is none, say it without a number.",
+            max_tokens=4000, effort="medium")
 
     customer_ids = {r.document_id for r in rows}
     known = customer_ids | {i for f in comp for i in f.sources}
@@ -430,6 +515,7 @@ async def generate_report(ctx: CustomerContext, prompt: str, history: list[str] 
     rep.open_items = keep(rep.open_items, allowed=customer_ids)  # open items are about this customer only
     rep.risks, rep.playbook_tips = keep(rep.risks), keep(rep.playbook_tips)
     rep.stakeholders, rep.objections = keep(rep.stakeholders), keep(rep.objections)
+    _apply_ledger(rep, current, ctx, customer_ids, trace)
     rep.what_to_ask = keep(rep.what_to_ask, False)
     for step in (rep.call_plan.opening, rep.call_plan.recap, rep.call_plan.discovery, rep.call_plan.value,
                  rep.call_plan.objections, rep.call_plan.close):

@@ -14,7 +14,9 @@ and everything the company has learned from all its other customers. Every claim
 new interaction ┤
  (one extraction)└── generalised, name-free lessons ─► bank  company    (shared playbook)
 
-brief = recall(cust-<id>) + recall(company, filtered by industry) → Groq (strict Pydantic output) → cited report
+every upload also updates the DEAL LEDGER (current state, MongoDB) with one strict Groq call
+
+brief = ledger + recall(cust-<id>) + recall(company, filtered by industry) → Groq (strict Pydantic output) → cited report
 ```
 
 | Step | Hindsight operation |
@@ -31,6 +33,9 @@ brief = recall(cust-<id>) + recall(company, filtered by industry) → Groq (stri
   names the customer or any of its people is withheld, so one customer's data never reaches another's brief.
 - **The learning loop.** When an interaction is linked to an earlier brief, the extraction compares the advice with
   what happened and writes `what_worked` / `what_failed` lessons marked `confirmed_outcome`.
+- **The deal ledger.** Each customer's current state (open / done items, where each person stands), updated on every
+  upload and read first by every brief; open items and stances in a brief come from it in code. See
+  `docs/architecture/deal-ledger.md`.
 - **The evidence gate.** Every cited id must exist in memory; unsourced claims are dropped and counted.
 - **Structured output everywhere.** Every LLM call returns a Pydantic model through Groq strict structured outputs.
 
@@ -48,7 +53,7 @@ question**. See `backend/memory_agent/prompts.py`.
 | `backend/main.py`, `api_v2.py` | FastAPI app and routes |
 | `backend/auth.py`, `db.py` | Login (bcrypt + JWT), per-customer permission check, MongoDB |
 | `backend/contracts.py` | Every request/response and LLM schema (Pydantic) |
-| `backend/memory_agent/` | The agent: parsing, speech-to-text, extraction, Hindsight access, reports |
+| `backend/memory_agent/` | The agent: parsing, speech-to-text, extraction, Hindsight access, deal ledger, reports |
 | `backend/seed_demo.py`, `sample_data/` | Demo logins, three customers, 20 interactions |
 | `backend/build_deal.py` | Builds `acme_import.json` from the Maven Analytics CRM dataset |
 | `frontend/src/` | React app; `api-types.ts` is generated from the backend's OpenAPI schema |
@@ -88,6 +93,7 @@ Demo logins (password = `DEMO_PASSWORD` from `.env`): `kami@clarity.example` (Ac
 |---|---|---|
 | `HINDSIGHT_API_KEY` | backend | Hindsight Cloud key |
 | `GROQ_API_KEY`, `GROQ_MODEL` | backend | Groq key; `openai/gpt-oss-120b` |
+| `GROQ_API_KEYS` | backend | several Groq keys, comma-separated, no spaces; rotated when one hits its per-minute or per-day limit (free tier: 200,000 tokens per model per key per day) |
 | `MONGODB_URI`, `MONGODB_DB` | backend | Atlas connection string and database name |
 | `JWT_SECRET` | backend | random string that signs login tokens |
 | `CLIENT_URL` | backend | deployed frontend URL(s), comma-separated (CORS); localhost is always allowed |

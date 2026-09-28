@@ -6,6 +6,9 @@ Short log of what is decided, newest first. Details live in the linked docs.
 
 | # | Decision | Why / detail |
 |---|---|---|
+| D20 | **Groq key rotation**: `GROQ_API_KEYS` (comma-separated). Every model is tried on every key, best model first (gpt-oss-120b on keys 1…n, then the smaller models); speech-to-text rotates too. | The free tier's **daily** cap (200,000 tokens per model per key) was hit in testing; per-minute checks had not shown it. |
+| D19 | **Hindsight observations off for customer banks, on for the company bank.** | Observations had no source of their own and went stale after replacement; the ledger replaces them. [`deal-ledger.md`](./deal-ledger.md) |
+| D18 | **Deal ledger** per customer (MongoDB `ledgers`): the current state, updated by one strict Groq call per upload, read first by every brief. Open items, objection status, stances and stage are set in code from it. | Briefs re-derived state from scattered facts and kept finished items open. [`deal-ledger.md`](./deal-ledger.md) |
 | D17 | **Old single-deal code removed** (`agent.py`, `sales_agent.py`, old routes) once the v2 UI replaced it: two agents side by side is how drift starts. | CHANGELOG v2 |
 | D16 | **Uploads ≤ 4 MB; long calls by recording URL.** Vercel caps request bodies at 4.5 MB; Groq's transcription API accepts `url=` and fetches the audio itself. Functions run up to 300 s (Hobby max). | Vercel functions limits doc; Groq SDK `transcriptions.create(url=…)` |
 | D15 | **The org's main prompt lives in MongoDB (`settings/org`) and admins edit it on the Settings page.** The evidence rules are a separate locked block in code, because the evidence gate depends on them. Placeholders `{exec_name}`, `{customer}`, `{industry}`. | `memory_agent/prompts.py`, `POST /api/settings` |

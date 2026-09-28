@@ -16,7 +16,7 @@ from memory_agent.prompts import DEFAULT_ORG_PROMPT, LOCKED_RULES, PIECES
 from auth import can_see, check_password, current_user, customer_context, issue_token, require_admin, user_out
 from contracts import (
     AssignIn, CustomerContext, CustomerDetail, CustomerIn, CustomerOut, IngestIn, Insight, InsightFilters,
-    InteractionPreview, JobOut, LoginIn, LoginOut, OrgSettings, OrgSettingsIn, Participant, Profile, PromptPiece,
+    InteractionPreview, JobOut, Ledger, LoginIn, LoginOut, OrgSettings, OrgSettingsIn, Participant, Profile, PromptPiece,
     RawInput, Report, RequestIn,
     RequestOut,
     RequestRow, SourceText, UserOut,
@@ -133,11 +133,13 @@ async def ingest(body: IngestIn, ctx: Ctx, user: User):
     await db.jobs.insert_one({"_id": job_id, "customer_id": ctx.customer_id, "user_id": str(user["_id"]),
                               "status": "running", "stage": "extracting", "created_at": now()})
     try:
-        result = await agent.ingest_interaction(ctx, body.interactions, prior)
+        result = await agent.ingest_interaction(ctx, body.interactions, prior, await load_ledger(ctx.customer_id))
     except Exception as e:
         await db.jobs.update_one({"_id": job_id}, {"$set": {"status": "failed", "stage": "failed",
                                                             "error": getattr(e, "message", str(e))[:300]}})
         raise
+    if result.ledger:
+        await save_ledger(ctx.customer_id, result.ledger)
     await db.jobs.update_one({"_id": job_id}, {"$set": {"status": "done", "stage": "done",
                                                         "result": result.model_dump(mode="json")}})
     await db.customers.update_one({"_id": ctx.customer_id}, {"$unset": {"profile_cache": ""}})
@@ -170,7 +172,8 @@ async def create_request(body: RequestIn, ctx: Ctx, user: User):
         if parent:
             history = [f"Salesperson: {parent['prompt']}", f"Assistant: {parent['report'].get('answer', '')}"]
     org = await db.settings.find_one({"_id": "org"}) or {}
-    report = await agent.generate_report(ctx, body.prompt, history, body.pieces, org.get("main_prompt"))
+    report = await agent.generate_report(ctx, body.prompt, history, body.pieces, org.get("main_prompt"),
+                                         await load_ledger(ctx.customer_id))
     rid = uuid.uuid4().hex[:12]
     created = now()
     await db.requests.insert_one({"_id": rid, "customer_id": ctx.customer_id, "user_id": str(user["_id"]),
@@ -195,6 +198,32 @@ async def get_request(request_id: str, ctx: Ctx):
         raise HTTPException(404, {"error": "not_found", "message": "No such request"})
     return RequestOut(request_id=r["_id"], customer_id=r["customer_id"], prompt=r["prompt"],
                       created_at=r["created_at"], report=Report(**r["report"]))
+
+
+# ---------- deal ledger ----------
+
+async def load_ledger(customer_id: str) -> Ledger | None:
+    doc = await database().ledgers.find_one({"_id": customer_id})
+    return Ledger(**doc["ledger"]) if doc else None
+
+
+async def save_ledger(customer_id: str, ledger: Ledger) -> None:
+    await database().ledgers.replace_one({"_id": customer_id}, {"_id": customer_id,
+                                                                "ledger": ledger.model_dump(mode="json")}, upsert=True)
+
+
+@router.get("/customers/{customer_id}/ledger", response_model=Ledger)
+async def get_ledger(ctx: Ctx):
+    """The customer's current state: open and closed items and where each person stands."""
+    return await load_ledger(ctx.customer_id) or Ledger()
+
+
+@router.post("/customers/{customer_id}/ledger/rebuild", response_model=Ledger)
+async def rebuild_ledger(ctx: Ctx):
+    """Rebuild from every stored interaction in date order (existing customers, or after fixing old data)."""
+    ledger = await agent.rebuild_ledger(ctx)
+    await save_ledger(ctx.customer_id, ledger)
+    return ledger
 
 
 # ---------- profile + company insights ----------

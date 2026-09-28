@@ -29,15 +29,23 @@ async def transcribe(audio: bytes | None, file_name: str | None, url: str | None
         raise InvalidInput("Upload an audio file or give a recording URL.")
     if audio and len(audio) > MAX_UPLOAD_BYTES:
         raise InvalidInput("Audio is over 25 MB. Compress it (mono 16 kHz mp3) or give the recording URL.")
-    client = AsyncGroq(api_key=os.environ.get("GROQ_API_KEY", ""))
-    try:
-        kwargs = dict(model=STT_MODEL, response_format="verbose_json", timestamp_granularities=["segment"])
-        if audio:
-            r = await client.audio.transcriptions.create(file=(file_name or "call.mp3", audio), **kwargs)
-        else:
-            r = await client.audio.transcriptions.create(url=url, **kwargs)
-    except Exception as e:
-        raise TranscriptionFailed(f"Speech-to-text failed: {str(e)[:200]}. Paste the transcript instead.") from e
+    kwargs = dict(model=STT_MODEL, response_format="verbose_json", timestamp_granularities=["segment"])
+    last: Exception | None = None
+    r = None
+    for key in llm.keys():  # rotate: a key at its audio limit falls through to the next one
+        client = AsyncGroq(api_key=key, max_retries=1)
+        try:
+            if audio:
+                r = await client.audio.transcriptions.create(file=(file_name or "call.mp3", audio), **kwargs)
+            else:
+                r = await client.audio.transcriptions.create(url=url, **kwargs)
+            break
+        except Exception as e:
+            last = e
+            if getattr(e, "status_code", None) not in (429, 503):
+                break  # a bad file or URL fails the same on every key
+    if r is None:
+        raise TranscriptionFailed(f"Speech-to-text failed: {str(last)[:200]}. Paste the transcript instead.") from last
     data = r.to_dict() if hasattr(r, "to_dict") else dict(r)
     segments = [dict(start=s.get("start", 0), end=s.get("end", 0), text=(s.get("text") or "").strip())
                 for s in data.get("segments") or []]

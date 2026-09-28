@@ -89,7 +89,10 @@ async def ensure_bank(hc, bank_id: str) -> bool:
         mission=("Learn what works in selling across all customers." if company
                  else "Remember everything about this customer so the salesperson doesn't have to."),
         retain_custom_instructions=COMPANY_RETAIN_INSTRUCTIONS if company else CUSTOMER_RETAIN_INSTRUCTIONS,
-        enable_observations=True,
+        # Customer banks: off. Merged observations had no source of their own (wrong citations) and went stale after
+        # a document was replaced; the deal ledger keeps the current state instead, with a source on every line.
+        # Company bank: on — merging lessons across many customers into patterns is what that bank is for.
+        enable_observations=company,
         observations_mission=COMPANY_OBSERVATIONS_MISSION if company else None,
     )
     return True

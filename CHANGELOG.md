@@ -6,12 +6,24 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **Deal ledger** (`memory_agent/ledger.py`, MongoDB `ledgers`, `docs/architecture/deal-ledger.md`): each customer's
+  current state — items with status, owner, due date and sources, and where each person stands — updated by one
+  strict Groq call on every upload and rebuilt on demand (`POST /api/customers/{id}/ledger/rebuild`, *Rebuild* button).
+  Briefs read it first; open items, objection status, stances and stage are set from it in code. New "Deal ledger"
+  panel on the customer page. Fixes: finished items shown as open, Priya shown as a blocker, our own manager in the
+  customer's stakeholder map (also filtered in code), placeholder figures like "X%" (detected in code, one retry).
+- **Groq key rotation** (`GROQ_API_KEYS`): every model on every key, best model first; speech-to-text rotates too.
+  The free tier's daily cap (200,000 tokens per model per key) had been exhausted by testing.
 - **Visual brief**: deal health + stage stepper, open items as a due-date timeline, stakeholder map
   (blocker → champion), objection → response flow, the call plan as a clickable 6-step flow, memory-mix bar.
   New structured fields: `deal_stage`, `deal_health`, `health_reason`, `stakeholders[].stance`,
   `open_items[]` = {text, owner, due, status, sources}, `call_plan` = {opening … close}.
 - **Hover help** on every control (what "Get my brief" vs "Ask as follow-up" do, each prompt chip's exact text, …).
 - Explicit **"Happened on"** date + time field; the preview shows an editable date, highlighted when it is today.
+
+### Changed
+- Hindsight **observations off for customer banks** (on for the company bank): their merged facts had no source of
+  their own and went stale after replacement; the ledger replaces them. Applied to the three existing banks.
 
 ### Fixed
 - **Briefs ignored the newest interaction.** Recall ranks by relevance, not date, so `CALL-04` (questionnaire
