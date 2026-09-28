@@ -1,27 +1,29 @@
-"""Sales Memory Agent: conversations -> Hindsight memory -> deal profile + chat guidance -> outcomes.
+"""Sales Memory Agent. Hindsight is the ONLY source of truth.
 
-Hindsight does the heavy lifting: retain extracts sales facts (bank is told what to look for),
-reflect reasons over the deal memory. Our code adds the evidence gate: every claim must point
-to a real source message, or it is dropped.
+Every CRM record, email, call transcript, WhatsApp message and call outcome is a document in the
+Hindsight bank. This module reads and writes only there:
+  retain           -> store a conversation (Hindsight extracts sales facts, guided by our instructions)
+  list/get docs    -> the source list and original text shown in the UI
+  reflect          -> deal profile and chat answers, scoped to the deal's memories
+Our addition on top: the evidence gate (every claim must cite a source that is really in memory).
 """
-import json
 import os
 import re
 from datetime import datetime, timezone
-from pathlib import Path
 
 from dotenv import load_dotenv
 
 load_dotenv()
 BANK = os.getenv("HINDSIGHT_BANK", "sales-memory")
-DEAL_FILE = Path(__file__).parent / "acme_deal.json"
+DEAL_DOC = "DEAL"  # the deal record itself is a Hindsight document too
+PREFIX = {"crm": "CRM", "email": "EM", "call": "CALL", "whatsapp": "WA", "outcome": "OUT", "note": "NOTE"}
 
 RETAIN_INSTRUCTIONS = (
-    "These are sales conversations (email, call transcripts, WhatsApp, CRM updates) about one B2B deal. "
-    "Extract: customer pain points and goals; objections and who raised them; stakeholders with role and what "
+    "These are sales conversations (email, call transcripts, WhatsApp, CRM updates, call outcomes) about one B2B "
+    "deal. Extract: customer pain points and goals; objections and who raised them; stakeholders with role and what "
     "each cares about; competitors and what was said about them; requirements; pricing and discount discussions; "
-    "commitments with owner and due date; deadlines; call outcomes. Always keep the source id in square "
-    "brackets (for example [EM-02]) and the date with each fact.")
+    "commitments with owner and due date; deadlines; call outcomes. Always keep the source id in square brackets "
+    "(for example [EM-02]) and the date with each fact.")
 
 PROFILE_SCHEMA = {
     "type": "object",
@@ -60,31 +62,53 @@ def client():
     return _client
 
 
-def load_deal():
-    return json.loads(DEAL_FILE.read_text(encoding="utf-8"))
+def _run(coro):
+    from hindsight_client.hindsight_client import _run_async  # the client's own sync bridge
+    return _run_async(coro)
 
 
-def deal_tag(deal):
-    return f"deal:{deal['deal']['deal_id'].lower()}"
+def _not_found(e):
+    return getattr(e, "status", None) == 404
 
 
 # ---------- pure helpers (tested in test_agent.py) ----------
 
+def deal_tag(deal):
+    return f"deal:{deal['deal_id'].lower()}"
+
+
 def item_text(deal, it):
     who = it.get("from") or it.get("participants")
-    return (f"[{it['id']}] {it['channel'].upper()} on {it['date'][:10]} for deal {deal['deal']['deal_id']} "
-            f"({deal['deal']['customer']}): {it['title']}." + (f" People: {who}." if who else "") +
-            f"\n{it['content']}")
+    return (f"[{it['id']}] {it['channel'].upper()} on {it['date'][:10]} for deal {deal['deal_id']} "
+            f"({deal['customer']}): {it['title']}." + (f" People: {who}." if who else "") + f"\n{it['content']}")
 
 
 def to_retain_item(deal, it):
+    md = {"source_id": it["id"], "channel": it["channel"], "title": it["title"], "date": it["date"]}
+    md.update({k: it[k] for k in ("from", "to", "participants") if it.get(k)})
     return dict(content=item_text(deal, it), timestamp=it["date"], document_id=it["id"],
-                context=f"{it['channel']} message {it['id']} in sales deal {deal['deal']['deal_id']}",
-                metadata={"source_id": it["id"], "channel": it["channel"], "title": it["title"], "date": it["date"]},
-                tags=[deal_tag(deal), f"channel:{it['channel']}"])
+                context=f"{it['channel']} message {it['id']} in sales deal {deal['deal_id']}",
+                metadata=md, tags=[deal_tag(deal), f"channel:{it['channel']}"])
 
 
-IDS = re.compile(r"\[([A-Z]+-\d+)\]")
+def deal_retain_item(deal):
+    text = (f"[{DEAL_DOC}] CRM deal record: opportunity {deal['deal_id']} with {deal['customer']} "
+            f"({deal['industry']}) for {deal['product']}, value {deal['value']}, stage {deal['stage']}. "
+            f"Owner: {deal['salesperson']}.")
+    return dict(content=text, document_id=DEAL_DOC, timestamp=datetime.now(timezone.utc).isoformat(),
+                context=f"deal record {deal['deal_id']}", tags=[deal_tag(deal), "channel:crm"],
+                metadata={k: str(v) for k, v in deal.items()} | {"source_id": DEAL_DOC, "channel": "crm",
+                                                               "title": "Deal record", "date": ""})
+
+
+def next_id(channel, existing):
+    """EM-04 after EM-01..EM-03: ids stay short and readable because the agent cites them."""
+    p = PREFIX[channel]
+    nums = [int(i.split("-")[1]) for i in existing if i.startswith(p + "-") and i.split("-")[1].isdigit()]
+    return f"{p}-{max(nums, default=0) + 1:02d}"
+
+
+IDS = re.compile(r"\[([A-Z]+-\d+|DEAL)\]")
 
 
 def gate_profile(profile, known):
@@ -110,7 +134,7 @@ def gate_answer(answer, sources, known):
     return re.sub(r"\s{2,}", " ", text).strip(), sorted(set(real) | cited)
 
 
-# ---------- Hindsight calls ----------
+# ---------- Hindsight: the source of truth ----------
 
 def ensure_bank():
     try:
@@ -124,58 +148,78 @@ def ensure_bank():
         pass  # already exists
 
 
-def ingest(deal, items):
+def retain(items):
     ensure_bank()
-    client().retain_batch(bank_id=BANK, items=[to_retain_item(deal, it) for it in items])
+    client().retain_batch(bank_id=BANK, items=items)
 
 
-def remembered_ids(deal):
-    """Which source messages are in memory (asks Hindsight, so it survives restarts)."""
-    ids, offset = set(), 0
+def sources():
+    """Every document in the bank, newest metadata as stored at retain time."""
+    out, offset = [], 0
     while True:
         try:
-            page = client().list_memories(bank_id=BANK, limit=100, offset=offset)
+            page = _run(client()._documents_api.list_documents(bank_id=BANK, limit=100, offset=offset))
         except Exception as e:
-            if getattr(e, "status", None) == 404:
-                return ids  # bank not created yet, or just reset: memory is empty
+            if _not_found(e):
+                return []  # bank not created yet, or just reset: memory is empty
             raise
-        items = page.items or []
-        for m in items:
-            d = m if isinstance(m, dict) else m.to_dict()
-            if d.get("document_id"):
-                ids.add(d["document_id"])
-        if len(items) < 100:
-            return ids
+        for d in page.items:
+            d = d if isinstance(d, dict) else d.to_dict()
+            md = d.get("document_metadata") or {}
+            out.append(dict(id=d["id"], channel=md.get("channel", "note"), date=md.get("date", ""),
+                            title=md.get("title", d["id"]), people=md.get("from") or md.get("participants"),
+                            memories=d.get("memory_unit_count")))
+        if len(page.items) < 100:
+            return sorted(out, key=lambda s: (s["id"] != DEAL_DOC, s["date"]))
         offset += 100
 
 
-def profile(deal, known):
+def source_text(doc_id):
+    d = _run(client()._documents_api.get_document(bank_id=BANK, document_id=doc_id))
+    return d.original_text
+
+
+def deal():
+    """The deal record, read from its Hindsight document. None until a deal is imported."""
+    try:
+        d = _run(client()._documents_api.get_document(bank_id=BANK, document_id=DEAL_DOC))
+    except Exception as e:
+        if _not_found(e):
+            return None
+        raise
+    md = d.document_metadata or {}
+    return {k: md.get(k, "") for k in ("deal_id", "customer", "industry", "product", "value", "stage",
+                                        "salesperson", "sources")}
+
+
+def add_source(dl, channel, title, content, people="", date=None, known=None):
+    known = known if known is not None else {s["id"] for s in sources()}
+    it = dict(id=next_id(channel, known), channel=channel, title=title, content=content,
+              date=date or datetime.now(timezone.utc).isoformat())
+    if people:
+        it["from"] = people
+    retain([to_retain_item(dl, it)])
+    return it
+
+
+def profile(dl, known):
     r = client().reflect(
-        bank_id=BANK, budget="low", tags=[deal_tag(deal)], tags_match="any_strict", response_schema=PROFILE_SCHEMA,
-        query=(f"Build the sales profile of deal {deal['deal']['deal_id']} ({deal['deal']['customer']}) from memory: "
-               "pain points, objections (who raised, open or resolved), stakeholders (role, what they care about), "
-               "competitors, commitments (owner, due date, done/open/overdue as of the latest message) and pricing "
-               "discussions. For every item list the source ids like EM-02 it came from. Use only remembered facts."))
+        bank_id=BANK, budget="low", tags=[deal_tag(dl)], tags_match="any_strict", response_schema=PROFILE_SCHEMA,
+        query=(f"Build the sales profile of deal {dl['deal_id']} ({dl['customer']}) from memory: pain points, "
+               "objections (who raised, open or resolved), stakeholders (role, what they care about), competitors, "
+               "commitments (owner, due date, done/open/overdue as of the latest message) and pricing discussions. "
+               "For every item list the source ids like EM-02 it came from. Use only remembered facts."))
     return gate_profile(r.structured_output or {}, known)
 
 
-def chat(deal, question, use_memory, known):
-    # Memory off = same LLM, but filtered to a tag no memory has: the honest "before" of the demo.
-    tags = [deal_tag(deal)] if use_memory else ["deal:none"]
+def chat(dl, question, use_memory, known):
+    # Memory off = same LLM, filtered to a tag no memory has: the honest "before" of the demo.
+    tags = [deal_tag(dl)] if use_memory else ["deal:none"]
     r = client().reflect(
         bank_id=BANK, budget="low", tags=tags, tags_match="any_strict", response_schema=CHAT_SCHEMA,
-        query=(f"I am {deal['deal']['salesperson']} selling {deal['deal']['product']} to {deal['deal']['customer']}. "
-               f"Question: {question}\nAnswer as my sales assistant in under 150 words, specific and actionable. "
-               "Cite source ids like [EM-02] after each fact. If memory has nothing relevant, say so and give "
-               "only generic advice. Never invent names, numbers or events."))
+        query=(f"I am {dl['salesperson']} selling {dl['product']} to {dl['customer']}. Question: {question}\n"
+               "Answer as my sales assistant in under 150 words, specific and actionable. Cite source ids like "
+               "[EM-02] after each fact. If memory has nothing relevant, say so and give only generic advice. "
+               "Never invent names, numbers or events."))
     out = r.structured_output or {"answer": r.text or "", "sources": []}
     return gate_answer(out.get("answer", ""), out.get("sources", []), known)
-
-
-def record_outcome(deal, summary, result, next_step, n):
-    it = dict(id=f"OUT-{n:02d}", channel="outcome", date=datetime.now(timezone.utc).isoformat(),
-              title=f"Call outcome: {result}",
-              content=f"Outcome recorded by the salesperson. Result: {result}. What happened: {summary}. "
-                      f"Agreed next step: {next_step or 'none recorded'}.")
-    ingest(deal, [it])
-    return it

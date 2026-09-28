@@ -1,15 +1,13 @@
-export type Channel = 'crm' | 'email' | 'call' | 'whatsapp' | 'outcome'
+export type Channel = 'crm' | 'email' | 'call' | 'whatsapp' | 'outcome' | 'note'
 
-export interface Interaction {
+/** A document in the Hindsight memory bank (the only source of truth). */
+export interface Source {
   id: string
   channel: Channel
   date: string
   title: string
-  content: string
-  from?: string
-  to?: string
-  participants?: string
-  remembered: boolean
+  people: string | null
+  memories: number | null
 }
 
 export interface DealInfo {
@@ -24,10 +22,10 @@ export interface DealInfo {
 }
 
 export interface DealResponse {
-  deal: DealInfo
-  interactions: Interaction[]
-  outcomes: string[]
+  deal: DealInfo | null
+  sources: Source[]
   memory_count: number
+  sample_remaining: number
 }
 
 type Sourced<T> = T & { sources: string[] }
@@ -70,7 +68,10 @@ async function call<T>(path: string, method = 'GET', body?: unknown): Promise<T>
 }
 
 export const getDeal = () => call<DealResponse>('/api/deal')
-export const remember = (ids: string[]) => call<{ remembered: string[] }>('/api/ingest', 'POST', { ids })
+export const sourceText = (id: string) => call<{ id: string; text: string }>(`/api/sources/${encodeURIComponent(id)}`)
+export const addSource = (channel: Channel, title: string, content: string, people: string) =>
+  call<{ remembered: string }>('/api/sources', 'POST', { channel, title, content, people })
+export const importSample = (mode: 'next' | 'all') => call<{ remembered: string[] }>('/api/import', 'POST', { mode })
 export const getProfile = () => call<{ profile: Profile | null; dropped: number }>('/api/profile')
 export const ask = (question: string, use_memory: boolean) => call<ChatAnswer>('/api/chat', 'POST', { question, use_memory })
 export const recordOutcome = (summary: string, result: string, next_step: string) =>

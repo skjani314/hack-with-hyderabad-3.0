@@ -9,9 +9,13 @@ linked to the message it came from. Record a call outcome and the next answer us
 
 ## How Hindsight memory is used
 
+**Hindsight is the only source of truth.** The deal record, every conversation and every outcome are documents in
+the `sales-memory` bank; the API reads them back from Hindsight on every request and keeps no database of its own.
+
 | Step | Hindsight operation |
 |---|---|
-| Remember a conversation | `retain` with the source id, channel, date and a deal tag. The bank is configured with sales-specific extraction instructions (`retain_custom_instructions`). |
+| Remember a conversation (paste, connector import, or outcome) | `retain` with the source id, channel, date and a deal tag. The bank is configured with sales-specific extraction instructions (`retain_custom_instructions`). |
+| Show what memory holds | `list_documents` / `get_document` (original text) |
 | Build the deal profile | `reflect` with a JSON response schema over the deal's memories |
 | Answer a question | `reflect` scoped to the deal tag, citing source ids |
 | Memory off (demo "before") | the same `reflect`, scoped to a tag no memory has, so the answer is generic |
@@ -29,7 +33,9 @@ actually in memory. Anything else is removed, and the UI says how many unsourced
 - **Conversations:** emails, call transcripts and WhatsApp messages generated to fit that opportunity. All people
   are fictional.
 
-`python backend/build_deal.py` downloads the dataset and writes `backend/acme_deal.json`.
+`python backend/build_deal.py` downloads the dataset and writes the import file `backend/sample_data/acme_import.json`.
+That file is read only by `sample_connector.py`, which stands in for real CRM / Gmail / WhatsApp connectors: it
+**imports into Hindsight** (UI buttons *+ Next* / *Import all*, or `python seed.py`). The agent never reads it.
 
 ## Run locally
 
@@ -37,6 +43,7 @@ actually in memory. Anything else is removed, and the UI says how many unsourced
 python -m venv .venv && .venv/Scripts/pip install -r backend/requirements.txt   # macOS/Linux: .venv/bin/pip
 cd backend
 cp .env.example .env            # then set HINDSIGHT_API_KEY
+../.venv/Scripts/python seed.py --reset                  # optional: fresh bank + import the sample deal
 ../.venv/Scripts/python -m uvicorn main:app --reload     # http://localhost:8000
 ../.venv/Scripts/python test_agent.py                    # evidence gate checks, no key needed
 ```
@@ -67,11 +74,11 @@ npm run dev                     # http://localhost:5173, uses VITE_API_URL from 
 
 ## Demo (60 seconds)
 
-1. Reset memory. Ask *"I have a call with Acme tomorrow. What should I focus on?"* The answer is generic.
+1. Reset memory, click **+ Next** once (the CRM record) and ask *"I have a call with Acme tomorrow. What should I focus on?"* Also try it with memory off: generic.
 2. Click **+ Next** a few times and ask again. The answer now knows the pain point and the account history.
 3. **Remember all** and ask again. It flags the overdue security questionnaire, the finance controller's price
    pushback against Nexbyte, and the 30 September budget deadline, each with sources.
-4. Record the outcome (*"Sent the questionnaire; Priya approved"*) and ask again. The advice moves on.
+4. Paste a new email (e.g. Priya approving the questionnaire) or record the outcome (*"Sent the questionnaire; Priya approved"*) and ask again. The advice moves on.
 
 **Credits:** each remembered message costs ~2.4k tokens of retain (~$0.03); each question or profile refresh is one
 reflect call (~$0.05).

@@ -1,7 +1,7 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import {
-  ask, getDeal, getProfile, recordOutcome, remember, resetMemory,
-  type Channel, type DealResponse, type Interaction, type Profile,
+  addSource, ask, getDeal, getProfile, importSample, recordOutcome, resetMemory, sourceText,
+  type Channel, type DealResponse, type Profile, type Source,
 } from './api'
 
 const CHANNEL: Record<Channel, { label: string; cls: string; icon: string }> = {
@@ -10,6 +10,7 @@ const CHANNEL: Record<Channel, { label: string; cls: string; icon: string }> = {
   call: { label: 'Call', cls: 'bg-amber-100 text-amber-700 dark:bg-amber-950 dark:text-amber-300', icon: '☎' },
   whatsapp: { label: 'WhatsApp', cls: 'bg-emerald-100 text-emerald-700 dark:bg-emerald-950 dark:text-emerald-300', icon: '◉' },
   outcome: { label: 'Outcome', cls: 'bg-rose-100 text-rose-700 dark:bg-rose-950 dark:text-rose-300', icon: '★' },
+  note: { label: 'Note', cls: 'bg-slate-100 text-slate-700 dark:bg-slate-800 dark:text-slate-300', icon: '✎' },
 }
 
 const QUESTIONS = [
@@ -33,32 +34,32 @@ export default function App() {
   const [focus, setFocus] = useState<string | null>(null)
   const [profileVersion, setProfileVersion] = useState(0)
 
-  const refresh = useCallback(() => getDeal().then(setDeal).catch(e => setError(e.message)), [])
+  const refresh = useCallback(() => getDeal().then(d => { setDeal(d); setError('') }).catch(e => setError(e.message)), [])
   useEffect(() => { refresh() }, [refresh])
 
   const afterMemoryChange = async () => { await refresh(); setProfileVersion(v => v + 1) }
 
   async function reset() {
-    if (!confirm('Wipe the demo memory? The before/after demo can then be run again.')) return
+    if (!confirm('Wipe the Hindsight memory bank? The before/after demo can then be run again.')) return
     try { await resetMemory(); await afterMemoryChange() } catch (e) { setError((e as Error).message) }
   }
 
+  const info = deal?.deal
   return (
     <div className="mx-auto max-w-[1400px] px-4 py-6">
       <header className="mb-6 flex flex-wrap items-end justify-between gap-4">
         <div>
           <div className="text-xs font-semibold uppercase tracking-widest text-indigo-600 dark:text-indigo-400">Sales Memory Agent</div>
           <h1 className="mt-1 text-2xl font-bold tracking-tight">Remembers the customer so you don't have to</h1>
-          {deal && (
-            <p className="mt-1 text-sm text-slate-500">
-              {deal.deal.customer} · {deal.deal.product} · {deal.deal.value} · stage {deal.deal.stage} · {deal.deal.salesperson}
-            </p>
-          )}
+          <p className="mt-1 text-sm text-slate-500">
+            {info ? `${info.customer} · ${info.product} · ${info.value} · stage ${info.stage} · ${info.salesperson}`
+              : 'No deal in memory yet. Import the sample CRM data to start.'}
+          </p>
         </div>
         <div className="flex items-center gap-3">
           {deal && (
             <span className="rounded-full bg-slate-900 px-3 py-1 text-xs font-medium text-white dark:bg-white dark:text-slate-900">
-              {deal.memory_count} memories in Hindsight
+              {deal.memory_count} documents in Hindsight
             </span>
           )}
           <button className={ghost} onClick={reset}>Reset memory</button>
@@ -66,17 +67,20 @@ export default function App() {
       </header>
 
       {error && <p className="mb-4 rounded-lg bg-rose-50 px-3 py-2 text-sm text-rose-700 dark:bg-rose-950/50 dark:text-rose-300">{error}</p>}
-      {!deal ? <p className="text-sm text-slate-500">Loading deal…</p> : (
+      {!deal ? <p className="text-sm text-slate-500">{error ? '' : 'Loading memory…'}</p> : (
         <div className="grid gap-5 lg:grid-cols-[minmax(0,1fr)_minmax(0,1.3fr)_minmax(0,1fr)]">
-          <Sources deal={deal} focus={focus} setFocus={setFocus} onChange={afterMemoryChange} />
           <div className="flex min-w-0 flex-col gap-5">
-            <Chat memoryCount={deal.memory_count} onSource={setFocus} />
-            <OutcomeForm onSaved={afterMemoryChange} />
+            <Sources deal={deal} focus={focus} setFocus={setFocus} onChange={afterMemoryChange} />
+            {info && <AddSource onSaved={afterMemoryChange} />}
+          </div>
+          <div className="flex min-w-0 flex-col gap-5">
+            <Chat memoryCount={deal.memory_count} ready={!!info} onSource={setFocus} />
+            {info && <OutcomeForm onSaved={afterMemoryChange} />}
           </div>
           <DealProfile version={profileVersion} empty={deal.memory_count === 0} onSource={setFocus} />
         </div>
       )}
-      {deal && <p className="mt-6 text-xs text-slate-400">{deal.deal.sources}</p>}
+      {info && <p className="mt-6 text-xs text-slate-400">{info.sources}</p>}
     </div>
   )
 }
@@ -111,68 +115,114 @@ function Sources({ deal, focus, setFocus, onChange }: {
 }) {
   const [busy, setBusy] = useState<string | null>(null)
   const [error, setError] = useState('')
-  const pending = deal.interactions.filter(i => !i.remembered)
 
-  async function add(ids: string[], label: string) {
-    setBusy(label); setError('')
-    try { await remember(ids); await onChange() } catch (e) { setError((e as Error).message) }
+  async function load(mode: 'next' | 'all') {
+    setBusy(mode); setError('')
+    try { await importSample(mode); await onChange() } catch (e) { setError((e as Error).message) }
     finally { setBusy(null) }
   }
 
   return (
-    <Panel title="Deal sources" action={
+    <Panel title="Memory: deal sources" action={deal.sample_remaining > 0 && (
       <div className="flex gap-2">
-        <button className={ghost} disabled={!!busy || !pending.length} onClick={() => add([pending[0].id], 'next')}>
-          {busy === 'next' ? 'Remembering…' : '+ Next'}
-        </button>
-        <button className={primary} disabled={!!busy || !pending.length} onClick={() => add(pending.map(p => p.id), 'all')}>
-          {busy === 'all' ? 'Remembering…' : 'Remember all'}
-        </button>
+        <button className={ghost} disabled={!!busy} onClick={() => load('next')}>{busy === 'next' ? 'Importing…' : '+ Next'}</button>
+        <button className={primary} disabled={!!busy} onClick={() => load('all')}>{busy === 'all' ? 'Importing…' : 'Import all'}</button>
       </div>
-    }>
+    )}>
       <p className="mb-3 text-xs text-slate-500">
-        {deal.interactions.length - pending.length}/{deal.interactions.length} conversations in memory.
-        Add them one by one and ask the same question to watch the agent learn.
+        Everything below is read from the Hindsight memory bank.
+        {deal.sample_remaining > 0 && ` Sample CRM connector: ${deal.sample_remaining} messages not imported yet. Import one at a time and ask the same question to watch the agent learn.`}
       </p>
       {error && <p className="mb-2 text-sm text-rose-600">{error}</p>}
-      <ol className="relative space-y-2 border-l border-slate-200 pl-4 dark:border-slate-800">
-        {deal.interactions.map(i => <SourceItem key={i.id} i={i} open={focus === i.id} toggle={() => setFocus(focus === i.id ? null : i.id)} />)}
-        {deal.outcomes.map(id => (
-          <li key={id} className="text-xs text-rose-600">★ {id} call outcome recorded</li>
-        ))}
-      </ol>
+      {!deal.sources.length ? (
+        <p className="rounded-xl border-2 border-dashed border-slate-200 p-6 text-center text-sm text-slate-400 dark:border-slate-800">
+          Memory is empty. Use <b>+ Next</b> or <b>Import all</b> to bring in the sample CRM, email, call and WhatsApp history.
+        </p>
+      ) : (
+        <ol className="relative space-y-2 border-l border-slate-200 pl-4 dark:border-slate-800">
+          {deal.sources.map(s => <SourceItem key={s.id} s={s} open={focus === s.id} toggle={() => setFocus(focus === s.id ? null : s.id)} />)}
+        </ol>
+      )}
     </Panel>
   )
 }
 
-function SourceItem({ i, open, toggle }: { i: Interaction; open: boolean; toggle: () => void }) {
-  const c = CHANNEL[i.channel]
+function SourceItem({ s, open, toggle }: { s: Source; open: boolean; toggle: () => void }) {
+  const [text, setText] = useState<string | null>(null)
+  const c = CHANNEL[s.channel] ?? CHANNEL.note
+  useEffect(() => {
+    if (!open || text !== null) return
+    let live = true
+    sourceText(s.id).then(r => { if (live) setText(r.text) }).catch(e => { if (live) setText(`Could not load: ${e.message}`) })
+    return () => { live = false }
+  }, [open, text, s.id])
+
   return (
     <li ref={el => { if (open) el?.scrollIntoView({ block: 'nearest', behavior: 'smooth' }) }}
-      className={`relative rounded-lg p-2 transition ${open ? 'bg-indigo-50 ring-1 ring-indigo-300 dark:bg-indigo-950/40 dark:ring-indigo-800' : ''} ${i.remembered ? '' : 'opacity-50'}`}>
-      <span className={`absolute -left-[21px] top-3 size-2.5 rounded-full ${i.remembered ? 'bg-indigo-500' : 'bg-slate-300 dark:bg-slate-700'}`} />
+      className={`relative rounded-lg p-2 transition ${open ? 'bg-indigo-50 ring-1 ring-indigo-300 dark:bg-indigo-950/40 dark:ring-indigo-800' : ''}`}>
+      <span className="absolute -left-[21px] top-3 size-2.5 rounded-full bg-indigo-500" />
       <button type="button" onClick={toggle} className="w-full text-left">
         <div className="flex items-center gap-2 text-xs">
           <span className={`rounded px-1.5 py-0.5 font-medium ${c.cls}`}>{c.icon} {c.label}</span>
-          <span className="font-mono text-slate-500">{i.id}</span>
-          <span className="ml-auto text-slate-400">{i.date.slice(0, 10)}</span>
+          <span className="font-mono text-slate-500">{s.id}</span>
+          <span className="ml-auto text-slate-400">{s.date.slice(0, 10)}</span>
         </div>
-        <div className="mt-1 text-sm font-medium">{i.title}</div>
-        {!i.remembered && <div className="text-xs text-slate-400">not in memory yet</div>}
+        <div className="mt-1 text-sm font-medium">{s.title}</div>
+        {s.memories != null && <div className="text-xs text-slate-400">{s.memories} facts extracted by Hindsight</div>}
       </button>
       {open && (
         <div className="mt-2 whitespace-pre-wrap rounded-md bg-white p-2 text-xs leading-relaxed text-slate-600 dark:bg-slate-950 dark:text-slate-300">
-          {(i.from || i.participants) && <div className="mb-1 font-medium">{i.from ?? i.participants}</div>}
-          {i.content}
+          {text ?? 'Loading from Hindsight…'}
         </div>
       )}
     </li>
   )
 }
 
+function AddSource({ onSaved }: { onSaved: () => Promise<void> }) {
+  const [channel, setChannel] = useState<Channel>('email')
+  const [title, setTitle] = useState('')
+  const [people, setPeople] = useState('')
+  const [content, setContent] = useState('')
+  const [busy, setBusy] = useState(false)
+  const [msg, setMsg] = useState('')
+
+  async function save(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true); setMsg('')
+    try {
+      const r = await addSource(channel, title, content, people)
+      setMsg(`Stored in Hindsight as ${r.remembered}. Ask again to see it used.`)
+      setTitle(''); setPeople(''); setContent(''); await onSaved()
+    } catch (err) { setMsg((err as Error).message) }
+    finally { setBusy(false) }
+  }
+
+  return (
+    <Panel title="Add a conversation">
+      <form className="space-y-2" onSubmit={save}>
+        <div className="flex flex-wrap gap-1.5">
+          {(['email', 'call', 'whatsapp', 'crm', 'note'] as Channel[]).map(ch => (
+            <button key={ch} type="button" onClick={() => setChannel(ch)}
+              className={`rounded-full px-3 py-1 text-xs font-medium transition ${channel === ch ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'bg-slate-100 text-slate-600 dark:bg-slate-800 dark:text-slate-300'}`}>
+              {CHANNEL[ch].icon} {CHANNEL[ch].label}
+            </button>
+          ))}
+        </div>
+        <input className={input} required minLength={2} placeholder="Title, e.g. Priya: questionnaire approved" value={title} onChange={e => setTitle(e.target.value)} />
+        <input className={input} placeholder="From / participants (optional)" value={people} onChange={e => setPeople(e.target.value)} />
+        <textarea className={`${input} min-h-24`} required minLength={5} placeholder="Paste the email, call notes or WhatsApp message…"
+          value={content} onChange={e => setContent(e.target.value)} />
+        <button className={`${primary} w-full`} disabled={busy}>{busy ? 'Storing in Hindsight…' : 'Remember this conversation'}</button>
+        {msg && <p className="text-sm text-slate-500">{msg}</p>}
+      </form>
+    </Panel>
+  )
+}
+
 interface Msg { q: string; answer?: string; sources?: string[]; memory?: number; usedMemory: boolean; error?: string }
 
-function Chat({ memoryCount, onSource }: { memoryCount: number; onSource: (id: string) => void }) {
+function Chat({ memoryCount, ready, onSource }: { memoryCount: number; ready: boolean; onSource: (id: string) => void }) {
   const [msgs, setMsgs] = useState<Msg[]>([])
   const [q, setQ] = useState('')
   const [useMemory, setUseMemory] = useState(true)
@@ -210,7 +260,8 @@ function Chat({ memoryCount, onSource }: { memoryCount: number; onSource: (id: s
       <div className="max-h-[520px] space-y-4 overflow-y-auto pr-1">
         {!msgs.length && (
           <p className="rounded-xl border-2 border-dashed border-slate-200 p-6 text-center text-sm text-slate-400 dark:border-slate-800">
-            Ask about the deal. With {memoryCount} memories the agent answers from what the customer actually said.
+            {ready ? `Ask about the deal. With ${memoryCount} documents in memory the agent answers from what the customer actually said.`
+              : 'Import the deal first, then ask about it.'}
           </p>
         )}
         {msgs.map((m, k) => (
@@ -223,7 +274,7 @@ function Chat({ memoryCount, onSource }: { memoryCount: number; onSource: (id: s
                     <p className="whitespace-pre-wrap">{m.answer}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
                       <span className={`rounded-full px-2 py-0.5 font-medium ${m.usedMemory ? 'bg-indigo-100 text-indigo-700 dark:bg-indigo-950 dark:text-indigo-300' : 'bg-slate-200 text-slate-600 dark:bg-slate-700 dark:text-slate-300'}`}>
-                        {m.usedMemory ? `from ${m.memory} memories` : 'memory off'}
+                        {m.usedMemory ? `from ${m.memory} documents` : 'memory off'}
                       </span>
                       {!!m.sources?.length && <>sources <SourceChips ids={m.sources} onSource={onSource} /></>}
                     </div>

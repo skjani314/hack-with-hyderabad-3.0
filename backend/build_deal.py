@@ -6,7 +6,7 @@ won/lost history are taken from the CSVs as-is. Dates are shifted into 2026 for 
 Conversations (email, calls, WhatsApp) are generated to fit that opportunity and marked synthetic;
 they only restate CRM facts that are true in the data.
 
-    python backend/build_deal.py   ->  backend/acme_deal.json
+    python backend/build_deal.py   ->  backend/sample_data/acme_import.json
 """
 import csv
 import io
@@ -20,7 +20,7 @@ from pathlib import Path
 DATA = Path(__file__).parent.parent / "data"
 RAW = DATA / "raw" / "crm.zip"
 URL = "https://maven-datasets.s3.amazonaws.com/CRM+Sales+Opportunities/CRM+Sales+Opportunities.zip"
-OUT = Path(__file__).parent / "acme_deal.json"  # inside backend/ so the Vercel backend deploy includes it
+OUT = Path(__file__).parent / "sample_data" / "acme_import.json"  # read only by sample_connector.py
 
 ACCOUNT, OPPORTUNITY = "Acme Corporation", "S3W6Q07M"
 DEAL_START = date(2026, 8, 3)       # the open opportunity's engage date is moved here
