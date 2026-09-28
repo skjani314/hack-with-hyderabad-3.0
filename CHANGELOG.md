@@ -22,8 +22,8 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   `include_source_facts` and cites the documents behind each observation.
 - **"10% discount agreed" when memory said "support plan instead of a discount".** Caused by the low reasoning effort
   introduced for rate limits; briefs now use medium effort (extraction and profile stay low).
-- **Rate-limit errors.** Every Groq call reserves its `max_tokens` against the 8k/min budget; an upload, the automatic
-  profile refresh and a brief in one minute exhausted all three models. Now: server waits for Groq's `retry-after`
+- **Rate-limit errors.** An upload, the automatic profile refresh and a brief in one minute exhausted the 8k/min
+  budget on all three models. (How Groq counts `max_tokens` and hidden reasoning against it is not in its docs.) Now: server waits for Groq's `retry-after`
   (≤ 25 s) and retries once; tighter `max_tokens`; the profile refreshes only on request; 413 (request too large) has
   its own message instead of being reported as a rate limit.
 - **Call script was all "Opening".** Replaced by `call_plan` with one field per step, so the order is guaranteed by

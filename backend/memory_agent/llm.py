@@ -4,10 +4,11 @@ Every data-producing LLM call goes through `structured()`: the output type is se
 `strict: true`, so Groq's constrained decoding guarantees the shape and Pydantic validates it again on our side.
 Structured outputs and tool use cannot be combined on Groq, so callers fetch memory first and pass it in the prompt.
 
-Groq free tier: 8,000 tokens per minute per model (x-ratelimit-limit-tokens). Groq counts the prompt AND the
-requested `max_tokens` against that budget, and gpt-oss's hidden reasoning is part of the output. So we keep
-`max_tokens` tight, ask gpt-oss for low reasoning effort, and when Groq says "try again in N s" we wait and retry
-on the server instead of showing the salesperson an error.
+Groq free tier: 8,000 tokens per minute per model (x-ratelimit-limit-tokens). Groq's rate-limit docs don't say
+exactly how the requested `max_tokens` or gpt-oss's hidden reasoning count against that budget, so we keep
+`max_tokens` tight and effort low where accuracy allows (briefs use medium: low misread "instead of"), and when
+Groq returns 429 with `retry-after` (documented, in seconds) we wait and retry on the server instead of showing the
+salesperson an error.
 """
 import asyncio
 import os
