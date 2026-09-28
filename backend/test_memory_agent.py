@@ -143,4 +143,14 @@ for bad in ("INS-3fa2c1ab", "CALL 07", "", "X-01"):
     except ValidationError:
         pass
 
+# 16. Groq 413 sizes are read from its message; the smallest overshoot across fallback models wins
+assert llm._too_large([E("Request too large ... on tokens per minute (TPM): Limit 6000, Requested 7400"),
+                       E("... Limit 8000, Requested 7400 ...")]) == (8000, 7400)
+assert llm._too_large([E("boom")]) is None
+
+# 17. When the newest-interactions block must shrink, the NEWEST survives (it keeps the brief current)
+lines = [f"[EM-0{i}] " + "word " * 40 for i in range(1, 4)]   # oldest → newest, ~50 tokens each
+kept = core._fit(lines[::-1], 60)[::-1]
+assert kept == [lines[-1]], kept
+
 print("ok")

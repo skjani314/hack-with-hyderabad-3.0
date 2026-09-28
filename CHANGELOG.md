@@ -26,6 +26,11 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
   budget on all three models. (How Groq counts `max_tokens` and hidden reasoning against it is not in its docs.) Now: server waits for Groq's `retry-after`
   (≤ 25 s) and retries once; tighter `max_tokens`; the profile refreshes only on request; 413 (request too large) has
   its own message instead of being reported as a rate limit.
+- **Briefs failed on production with "request too large" (413)** while the same brief worked locally: production's
+  Groq key has a lower per-minute limit. Measured locally that Groq sizes a request by its prompt (a 6,529-token
+  prompt with `max_tokens=3000` was accepted under an 8,000 limit), so the brief now reads Groq's
+  `Limit X, Requested Y`, cuts the memory context by the overshoot and retries once. The newest interactions are
+  trimmed last and from the old end, so the latest call survives. The error message now shows both numbers.
 - **Call script was all "Opening".** Replaced by `call_plan` with one field per step, so the order is guaranteed by
   the strict schema.
 - **Interaction saved with the wrong date** (29 Sep instead of the 18th entered). The backend keeps a sent date

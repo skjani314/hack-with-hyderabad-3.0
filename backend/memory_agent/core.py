@@ -16,7 +16,7 @@ from contracts import (
 )
 
 from . import llm, memory, parsing, prompts, stt
-from .errors import InvalidInput
+from .errors import InvalidInput, LLMRequestTooLarge
 from .memory import COMPANY_BANK, Fact
 
 IDS = re.compile(r"\[([A-Za-z]+-[\w-]+)\]")
@@ -361,25 +361,54 @@ async def generate_report(ctx: CustomerContext, prompt: str, history: list[str] 
         docs = await memory.documents(hc, ctx.bank_id)
         cust, comp, trace = await _recall_both(hc, ctx, prompt)
     rows = sorted((memory.source_row(d) for d in docs), key=lambda r: _when(r.occurred_at))
-    convo = _fit([f"{r.document_id} | {r.channel} | {r.occurred_at[:10]} | {r.title}" for r in rows[-25:]], 400)
-    latest = _fit(_latest(docs), 500)
-    cust_lines = _fit([f.line() for f in cust], 1500)
-    comp_lines = _fit([f.line() for f in comp], 600)
-    sections = [
-        ("CONVERSATIONS IN MEMORY (oldest first)", convo, "(none yet)"),
-        ("MOST RECENT INTERACTIONS (newest last; they override anything older)", latest, "(none yet)"),
-        ("CUSTOMER MEMORY", cust_lines, "(empty: new customer)"),
-        ("COMPANY PLAYBOOK", comp_lines, "(no lessons yet)"),
-    ]
-    if history:
-        sections.append(("EARLIER IN THIS CONVERSATION", history[-4:], ""))
-    user = "\n\n".join(f"{title}:\n" + ("\n".join(lines) or empty) for title, lines, empty in sections)
-    user += f"\n\nSALESPERSON'S REQUEST: {prompt}"
+
+    candidates = {
+        "convo": [f"{r.document_id} | {r.channel} | {r.occurred_at[:10]} | {r.title}" for r in rows[-25:]],
+        "latest": _latest(docs), "cust": [f.line() for f in cust], "comp": [f.line() for f in comp],
+    }
+    budgets = {"convo": 400, "latest": 500, "cust": 1500, "comp": 600}
+
+    def size(key: str) -> int:  # what the section actually needs, capped by its normal budget
+        return min(budgets[key], sum(llm.approx_tokens(x) for x in candidates[key]))
+
+    def build(scale: float) -> tuple[str, list[str], list[str], list[str]]:
+        """The prompt, with every memory section cut to `scale` of what it actually uses. The newest interactions
+        shrink least: they are what keeps the brief current."""
+        convo = _fit(candidates["convo"], int(size("convo") * scale))
+        # trimmed from the OLD end: the newest interaction is the last to go (listed oldest→newest)
+        latest = _fit(candidates["latest"][::-1], int(size("latest") * max(scale, 0.6)))[::-1]
+        cust_lines = _fit(candidates["cust"], int(size("cust") * scale))
+        comp_lines = _fit(candidates["comp"], int(size("comp") * scale))
+        sections = [
+            ("CONVERSATIONS IN MEMORY (oldest first)", convo, "(none yet)"),
+            ("MOST RECENT INTERACTIONS (newest last; they override anything older)", latest, "(none yet)"),
+            ("CUSTOMER MEMORY", cust_lines, "(empty: new customer)"),
+            ("COMPANY PLAYBOOK", comp_lines, "(no lessons yet)"),
+        ]
+        if history:
+            sections.append(("EARLIER IN THIS CONVERSATION", history[-4:], ""))
+        user = "\n\n".join(f"{title}:\n" + ("\n".join(lines) or empty) for title, lines, empty in sections)
+        return user + f"\n\nSALESPERSON'S REQUEST: {prompt}", latest, cust_lines, comp_lines
+
+    user, latest, cust_lines, comp_lines = build(1.0)
     trace.append(TraceStep(step="latest", detail="newest interactions",
                            result=", ".join(r.document_id for r in rows[-3:])))
     # medium reasoning: at "low", gpt-oss read "support plan instead of a 10% discount" as "10% discount agreed".
-    # The extra reasoning tokens fit the 8k/min budget; a second brief in the same minute waits (llm.structured).
-    draft = await llm.structured(ReportDraft, instructions, user, max_tokens=4000, effort="medium")
+    try:
+        draft = await llm.structured(ReportDraft, instructions, user, max_tokens=4000, effort="medium")
+    except LLMRequestTooLarge as e:
+        # Groq sizes a request by its prompt; a key with a lower per-minute limit needs less memory context.
+        limit, requested = getattr(e, "limit", None), getattr(e, "requested", None)
+        if not (limit and requested):
+            raise
+        # cut the memory context by the overshoot plus a 10% margin; instructions and schema are fixed
+        over = requested - int(limit * 0.9)
+        memory_tokens = sum(size(k) for k in budgets)
+        scale = max(0.2, 1 - over / max(memory_tokens, 1))
+        user, latest, cust_lines, comp_lines = build(scale)
+        trace.append(TraceStep(step="shrink_context", detail=f"limit {limit}, requested {requested}",
+                               result=f"memory context x{scale:.2f}"))
+        draft = await llm.structured(ReportDraft, instructions, user, max_tokens=4000, effort="medium")
     trace.append(TraceStep(step="write_report", detail=f"pieces: {', '.join(used) or 'none'}"))
 
     customer_ids = {r.document_id for r in rows}

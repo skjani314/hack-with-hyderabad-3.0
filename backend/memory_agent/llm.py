@@ -87,13 +87,27 @@ def _status(e: BaseException) -> int | None:
     return e.status_code if isinstance(e, ModelHTTPError) else None
 
 
+def _too_large(errors: list[BaseException]) -> tuple[int, int] | None:
+    """(limit, requested) from Groq's 413 text 'Limit 8000, Requested 8421'. The smallest overshoot wins, since
+    any model in the fallback chain that fits is enough. Measured: "Requested" is the PROMPT (a 6,529-token prompt
+    with max_tokens=3000 was accepted under an 8,000 limit), so the fix for a 413 is a shorter prompt."""
+    found = []
+    for e in errors:
+        m = re.search(r"Limit (\d+), Requested (\d+)", str(getattr(e, "body", "")) + str(e))
+        if m:
+            found.append((int(m.group(1)), int(m.group(2))))
+    return min(found, key=lambda lr: lr[1] - lr[0]) if found else None
+
+
 async def structured(output_type: type[T], instructions: str, prompt: str, max_tokens: int = 2000,
                      effort: str = "low") -> T:
-    """One strict structured LLM call. Waits out Groq's per-minute limit once; raises LLMRateLimited,
-    LLMRequestTooLarge or LLMFailed, never a raw provider error."""
+    """One strict structured LLM call. Waits out Groq's per-minute limit once. Raises LLMRateLimited,
+    LLMRequestTooLarge (carrying Groq's limit and requested size, so the caller can shorten the prompt) or LLMFailed,
+    never a raw provider error."""
     agent = Agent(_model(effort), output_type=NativeOutput(output_type, strict=True), instructions=instructions,
                   retries=1)
-    for attempt in range(2):
+    waited = False
+    for _ in range(2):
         try:
             return (await agent.run(prompt, model_settings={"max_tokens": max_tokens})).output
         except ConfigMissing:
@@ -103,11 +117,16 @@ async def structured(output_type: type[T], instructions: str, prompt: str, max_t
             text = " | ".join(str(x) for x in errors)
             statuses = {_status(x) for x in errors}
             if 413 in statuses or "Request too large" in text:
-                raise LLMRequestTooLarge("This request is too large for the Groq free tier (8,000 tokens per "
-                                         "minute). Try a shorter question or fewer focus chips.") from e
+                sizes = _too_large(errors)
+                detail = f" (limit {sizes[0]:,}, this request {sizes[1]:,} tokens)" if sizes else ""
+                err = LLMRequestTooLarge(f"This request is too large for the Groq key's per-minute limit{detail}. "
+                                         "Try a shorter question or fewer focus chips.")
+                err.limit, err.requested = sizes if sizes else (None, None)
+                raise err from e
             if 429 in statuses or "rate_limit" in text or "over capacity" in text:
                 wait = _retry_after(errors)
-                if attempt == 0 and (wait is None or wait <= MAX_WAIT_SECONDS):
+                if not waited and (wait is None or wait <= MAX_WAIT_SECONDS):
+                    waited = True
                     await asyncio.sleep((wait if wait is not None else 10) + 0.5)
                     continue
                 secs = f" in about {int(wait) + 1} seconds" if wait else " in a minute"
