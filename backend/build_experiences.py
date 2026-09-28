@@ -16,8 +16,8 @@ DATA = Path(__file__).parent.parent / "data"
 RAW = DATA / "raw" / "ai4i2020.csv"
 OUT = DATA / "experiences.json"
 
-# ponytail: caps keep Hindsight retain cost ~cents; raise if recall feels thin
-CAP_FAILURE, CAP_NEAR_MISS, CAP_NORMAL = 40, 40, 40
+# ponytail: retain costs ~2.4k tokens (~$0.024) per experience; 25 per bucket keeps seeding ~$5.5
+CAP_FAILURE, CAP_NEAR_MISS, CAP_NORMAL = 25, 25, 25
 OSF_LIMIT = {"L": 11000, "M": 12000, "H": 13000}  # tool wear x torque, per variant
 PREFIX = {"normal": "NO", "near_miss": "NM", "failure": "FL"}
 START = datetime(2026, 1, 1, tzinfo=timezone.utc)

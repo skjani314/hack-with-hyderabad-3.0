@@ -20,7 +20,7 @@ Actions, outcomes and machine IDs are not in the dataset. They are filled in fro
 python -m venv .venv && .venv/Scripts/pip install -r backend/requirements.txt   # macOS/Linux: .venv/bin/pip
 cd backend
 # put your key in backend/.env (HINDSIGHT_API_KEY=...)
-../.venv/Scripts/python seed.py           # load 369 experiences into Hindsight (~$0.35, once)
+../.venv/Scripts/python seed.py           # load 234 experiences + create 4 playbooks (~$5.5, once)
 ../.venv/Scripts/python seed.py --check   # recall a known dangerous reading
 ../.venv/Scripts/python -m uvicorn main:app --reload   # API on http://localhost:8000
 ../.venv/Scripts/python test_agent.py     # decision logic check, no key needed
@@ -41,8 +41,14 @@ npm run dev        # open http://localhost:5173 (/api is proxied to :8000)
 1. **Recall**: the reading is described in words ("small temperature gap, low spindle speed") and sent to Hindsight recall.
 2. **Compare**: each recalled experience is compared to the current reading (`agent.SCALES`). Only close ones count.
 3. **Decide**: most similar cases failed or nearly failed → **ESCALATE**; some → **MONITOR**; none → **NORMAL**. No memory → never invents history.
-4. **Explain**: Hindsight reflect writes the "why", citing case ids.
-5. **Learn**: the engineer records the outcome, it is retained, and the next similar reading uses it.
+4. **Self-check**: the agent recalls its *own* graded past calls on similar readings. A past miss raises the level; repeated false alarms lower an escalation. The adjustment is shown with its reason.
+5. **Explain**: Hindsight reflect writes the "why", citing case ids.
+6. **Learn**: the engineer records the outcome. Two memories are retained: the outcome itself, and a self-review grading the agent's call in hindsight (caught / missed / false alarm / correct). The next similar reading uses both.
+7. **Playbooks**: one Hindsight mental model per failure pattern (heat, power, overstrain, tool wear). Each rewrites itself after new memories are processed (`refresh_after_consolidation`), starting with the latest lessons and the agent's own decision record.
+
+Live-learned outcomes are recalled with a separate tag-scoped query, so the large seeded archive never crowds out the newest lessons.
+
+**Credits:** retain costs ~2.4k tokens (~$0.024) per memory, so seeding 234 experiences is ~$5.5. Each analysis is ~$0.05 with reflect; each recorded outcome retains 2 memories (~$0.05) and triggers one playbook refresh ($0.05).
 
 ## Deploy
 

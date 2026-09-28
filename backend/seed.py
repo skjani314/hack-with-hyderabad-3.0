@@ -20,7 +20,10 @@ def main():
                               rpm=1342, torque_nm=62.4, tool_wear_min=113))
         found = agent.recall(s)
         print(f"recalled {len(found)} experiences")
-        print(json.dumps(agent.decide(s, found), indent=2)[:2000])
+        d = agent.self_correct(s, agent.decide(s, found), agent.recall_reviews(s))
+        print(json.dumps({k: v for k, v in d.items() if k != "evidence"}, indent=2))
+        for p in agent.get_playbooks():
+            print(f"\n--- {p['name']} ({p['last_refreshed_at']})\n{p['content'][:400]}")
         return
     if "--reset" in sys.argv:
         hs.delete_bank(bank_id=agent.BANK)
@@ -36,6 +39,8 @@ def main():
     for i in range(0, len(items), BATCH):
         agent.client().retain_batch(bank_id=agent.BANK, items=items[i:i + BATCH])
         print(f"retained {min(i + BATCH, len(items))}/{len(items)}")
+    agent.create_playbooks()  # generated server-side over the next minute or two
+    print("playbooks created:", ", ".join(agent.PLAYBOOKS))
 
 
 if __name__ == "__main__":

@@ -1,5 +1,10 @@
-import { useEffect, useState, type FormEvent, type ReactNode } from 'react'
-import { analyze, recordOutcome, timeline, type Decision, type OutcomeKind, type Reading, type Status, type Timeline } from './api'
+import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
+import Markdown from 'react-markdown'
+import remarkGfm from 'remark-gfm'
+import {
+  analyze, playbooks, recordOutcome, timeline,
+  type Decision, type OutcomeKind, type Playbook, type Reading, type Status, type Timeline, type Verdict,
+} from './api'
 
 type Form = Record<keyof Reading, string>
 
@@ -30,8 +35,14 @@ const primary = `${btn} bg-indigo-600 text-white shadow-sm hover:bg-indigo-500`
 export default function App() {
   const [decision, setDecision] = useState<Decision | null>(null)
   const [tl, setTl] = useState<Timeline | null>(null)
+  const [rewriting, setRewriting] = useState<{ pattern: string; since: number } | null>(null)
   const refresh = () => timeline().then(setTl).catch(() => {})
   useEffect(() => { refresh() }, [])
+  const stopRewriting = useCallback(() => setRewriting(null), [])  // stable, so the poll timer isn't reset each render
+  const onSaved = (pattern: string | null) => {
+    refresh()
+    if (pattern) setRewriting({ pattern, since: Date.now() })
+  }
 
   return (
     <div className="mx-auto max-w-6xl px-4 py-8">
@@ -49,7 +60,8 @@ export default function App() {
       <div className="grid gap-6 lg:grid-cols-5">
         <div className="lg:col-span-2"><SensorForm onDecision={setDecision} /></div>
         <div className="lg:col-span-3"><DecisionCard d={decision} /></div>
-        {decision && <div className="lg:col-span-5"><Evidence d={decision} onSaved={refresh} /></div>}
+        {decision && <div className="lg:col-span-5"><Evidence d={decision} onSaved={onSaved} /></div>}
+        <div className="lg:col-span-5"><Playbooks focus={decision?.pattern ?? null} rewriting={rewriting} onFresh={stopRewriting} /></div>
         <div className="lg:col-span-5"><MemoryTimeline t={tl} /></div>
       </div>
     </div>
@@ -177,6 +189,7 @@ function DecisionCard({ d }: { d: Decision | null }) {
         <p className="mt-1 font-medium">{d.recommendation}</p>
       </div>
       <p className="mt-4 text-sm leading-relaxed text-slate-600 dark:text-slate-300">{d.reason}</p>
+      <SelfCheckPanel d={d} />
       <div className="mt-4 flex flex-wrap gap-2">
         {(d.recurring_signals.length ? d.recurring_signals : ['no elevated signals']).map(sig => (
           <span key={sig} className="rounded-full bg-slate-100 px-2.5 py-1 text-xs font-medium text-slate-600 dark:bg-slate-800 dark:text-slate-300">{sig}</span>
@@ -186,16 +199,48 @@ function DecisionCard({ d }: { d: Decision | null }) {
   )
 }
 
+function SelfCheckPanel({ d }: { d: Decision }) {
+  const c = d.self_check
+  if (!c.similar_reviews) return (
+    <p className="mt-4 text-xs text-slate-400">Self-check: no graded past calls of mine on similar readings yet.</p>
+  )
+  const items: [number, string, string][] = [
+    [c.caught, 'caught', 'text-emerald-600 dark:text-emerald-400'],
+    [c.correct, 'correct', 'text-emerald-600 dark:text-emerald-400'],
+    [c.false_alarms, 'false alarms', 'text-amber-600 dark:text-amber-400'],
+    [c.missed, 'missed', 'text-rose-600 dark:text-rose-400'],
+  ]
+  return (
+    <div className={`mt-4 rounded-xl border p-4 ${c.adjustment ? 'border-violet-300 bg-violet-50 dark:border-violet-800 dark:bg-violet-950/40' : 'border-slate-200 dark:border-slate-800'}`}>
+      <div className="text-xs font-semibold uppercase tracking-wider text-violet-600 dark:text-violet-400">
+        Self-check · my {c.similar_reviews} past calls on similar readings
+      </div>
+      <div className="mt-2 flex flex-wrap gap-4 text-sm">
+        {items.map(([n, l, cls]) => <span key={l}><b className={`tabular-nums ${cls}`}>{n}</b> <span className="text-slate-500">{l}</span></span>)}
+      </div>
+      {c.adjustment && <p className="mt-2 text-sm font-medium">{c.adjustment}</p>}
+    </div>
+  )
+}
+
+const VERDICT: Record<Verdict, { label: string; cls: string }> = {
+  caught: { label: 'My call was right: the risk was real.', cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' },
+  correct: { label: 'My call was right: the machine was fine.', cls: 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300' },
+  false_alarm: { label: 'False alarm. I will be more careful escalating readings like this.', cls: 'bg-amber-50 text-amber-800 dark:bg-amber-950/50 dark:text-amber-300' },
+  missed: { label: 'I under-called this. Next time I will raise similar readings.', cls: 'bg-rose-50 text-rose-700 dark:bg-rose-950/50 dark:text-rose-300' },
+}
+
 const OUTCOME_STYLE: Record<OutcomeKind, string> = {
   failed: 'border-l-rose-500', prevented_failure: 'border-l-emerald-500', normal: 'border-l-slate-300 dark:border-l-slate-600',
 }
 const OUTCOME_LABEL: Record<OutcomeKind, string> = { failed: 'Failed', prevented_failure: 'Prevented', normal: 'Normal' }
 
-function Evidence({ d, onSaved }: { d: Decision; onSaved: () => void }) {
+function Evidence({ d, onSaved }: { d: Decision; onSaved: (pattern: string | null) => void }) {
   const [action, setAction] = useState('')
   const [outcome, setOutcome] = useState<OutcomeKind>('prevented_failure')
   const [notes, setNotes] = useState('')
   const [msg, setMsg] = useState('')
+  const [verdict, setVerdict] = useState<Verdict | null>(null)
   const [savedFor, setSavedFor] = useState('')
   const [busy, setBusy] = useState(false)
 
@@ -205,7 +250,8 @@ function Evidence({ d, onSaved }: { d: Decision; onSaved: () => void }) {
     try {
       const r = await recordOutcome(d.event_id, action, outcome, notes)
       setMsg(`Saved as ${r.retained}. Analyze a similar reading to see the agent use it.`)
-      setSavedFor(d.event_id); setAction(''); setNotes(''); onSaved()
+      setVerdict(r.verdict)
+      setSavedFor(d.event_id); setAction(''); setNotes(''); onSaved(r.pattern)
     } catch (err) { setMsg((err as Error).message) }
     finally { setBusy(false) }
   }
@@ -229,7 +275,10 @@ function Evidence({ d, onSaved }: { d: Decision; onSaved: () => void }) {
       <div className="mt-6 border-t border-slate-200 pt-5 dark:border-slate-800">
         <h3 className="mb-3 text-sm font-semibold">Record what happened. The agent learns from it.</h3>
         {savedFor === d.event_id ? (
-          <p className="rounded-lg bg-emerald-50 px-3 py-2 text-sm text-emerald-700 dark:bg-emerald-950/50 dark:text-emerald-300">{msg}</p>
+          <div className="space-y-2">
+            {verdict && <p className={`rounded-lg px-3 py-2 text-sm font-medium ${VERDICT[verdict].cls}`}>Self-review: {VERDICT[verdict].label}</p>}
+            <p className="rounded-lg bg-slate-50 px-3 py-2 text-sm text-slate-600 dark:bg-slate-800/60 dark:text-slate-300">{msg}</p>
+          </div>
         ) : (
           <form className="flex flex-col gap-3 md:flex-row" onSubmit={save}>
             <input className={`${input} md:flex-[2]`} placeholder="Action taken, e.g. inspected bearing, reduced load" value={action} onChange={e => setAction(e.target.value)} required />
@@ -248,13 +297,74 @@ function Evidence({ d, onSaved }: { d: Decision; onSaved: () => void }) {
   )
 }
 
+const PATTERN_NAME: Record<string, string> = { HDF: 'Heat dissipation', PWF: 'Power', OSF: 'Overstrain', TWF: 'Tool wear' }
+
+function Playbooks({ focus, rewriting, onFresh }: {
+  focus: string | null
+  rewriting: { pattern: string; since: number } | null
+  onFresh: () => void
+}) {
+  const [list, setList] = useState<Playbook[]>([])
+  const [picked, setPicked] = useState<{ focus: string | null; tab: string } | null>(null)
+  const [error, setError] = useState('')
+  // a click wins until the next analysis changes the focus; a playbook being rewritten wins over both
+  const tab = rewriting?.pattern ?? (picked && picked.focus === focus ? picked.tab : focus ?? picked?.tab ?? 'HDF')
+  const setTab = (t: string) => setPicked({ focus, tab: t })
+
+  useEffect(() => { playbooks().then(setList).catch(e => setError(e.message)) }, [])
+
+  // After an outcome is saved, Hindsight rewrites that playbook server-side; poll until it is newer.
+  useEffect(() => {
+    if (!rewriting) return
+    const timer = setInterval(async () => {
+      try {
+        const fresh = await playbooks()
+        setList(fresh)
+        const p = fresh.find(x => x.pattern === rewriting.pattern)
+        const done = p?.last_refreshed_at && Date.parse(p.last_refreshed_at) > rewriting.since && !p.content.startsWith('Generating')
+        if (done || Date.now() - rewriting.since > 180_000) onFresh()
+      } catch { /* keep polling */ }
+    }, 8000)
+    return () => clearInterval(timer)
+  }, [rewriting, onFresh])
+
+  const p = list.find(x => x.pattern === tab)
+  const busy = rewriting?.pattern === tab
+  return (
+    <Card step={5} title="Learned playbook · written by the agent's memory">
+      <div className="mb-4 flex flex-wrap gap-2">
+        {Object.entries(PATTERN_NAME).map(([k, name]) => (
+          <button key={k} type="button" onClick={() => setTab(k)}
+            className={`rounded-full px-3 py-1 text-xs font-medium transition ${tab === k ? 'bg-slate-900 text-white dark:bg-white dark:text-slate-900' : 'bg-slate-100 text-slate-600 hover:bg-slate-200 dark:bg-slate-800 dark:text-slate-300'}`}>
+            {name}{k === focus ? ' · current' : ''}
+          </button>
+        ))}
+      </div>
+      {error && <p className="text-sm text-rose-600">{error}</p>}
+      {busy && (
+        <p className="mb-3 flex items-center gap-2 rounded-lg bg-violet-50 px-3 py-2 text-sm text-violet-700 dark:bg-violet-950/50 dark:text-violet-300">
+          <span className="size-2 animate-pulse rounded-full bg-violet-500" /> Rewriting this playbook with the outcome you just recorded…
+        </p>
+      )}
+      {p ? (
+        <>
+          <div className="text-sm leading-relaxed text-slate-700 dark:text-slate-300 [&_h1]:mb-2 [&_h1]:mt-4 [&_h1]:font-semibold [&_h2]:mb-2 [&_h2]:mt-4 [&_h2]:font-semibold [&_h2]:text-slate-900 dark:[&_h2]:text-white [&_h3]:mt-3 [&_h3]:font-semibold [&_li]:ml-5 [&_li]:list-disc [&_p]:my-2 [&_table]:my-3 [&_table]:w-full [&_table]:text-xs [&_td]:border-b [&_td]:border-slate-100 [&_td]:px-2 [&_td]:py-1 dark:[&_td]:border-slate-800 [&_th]:border-b [&_th]:border-slate-200 [&_th]:px-2 [&_th]:py-1 [&_th]:text-left dark:[&_th]:border-slate-700 overflow-x-auto">
+            <Markdown remarkPlugins={[remarkGfm]}>{p.content}</Markdown>
+          </div>
+          {p.last_refreshed_at && <p className="mt-3 text-xs text-slate-400">Last rewritten {new Date(p.last_refreshed_at).toLocaleString()}</p>}
+        </>
+      ) : !error && <p className="text-sm text-slate-500">No playbook yet. Run <code>python seed.py</code> to create them.</p>}
+    </Card>
+  )
+}
+
 function MemoryTimeline({ t }: { t: Timeline | null }) {
   if (!t) return null
   const max = Math.max(1, ...t.months.map(m => (m.failure ?? 0) + (m.near_miss ?? 0)))
   const pct = (n = 0) => `${(n / max) * 100}%`
   const total = t.months.reduce((a, m) => a + (m.failure ?? 0) + (m.near_miss ?? 0), 0)
   return (
-    <Card step={4} title="Memory evolution">
+    <Card step={6} title="Memory evolution">
       <div className="mb-4 flex flex-wrap items-center gap-4 text-xs text-slate-500">
         <span className="text-sm font-medium text-slate-900 dark:text-white">{total + t.learned.length} risk experiences remembered</span>
         <span className="flex items-center gap-1.5"><i className="size-2.5 rounded-sm bg-rose-500" /> failures</span>

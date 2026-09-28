@@ -23,9 +23,30 @@ export interface Evidence {
   text: string
 }
 
+export type Verdict = 'caught' | 'missed' | 'false_alarm' | 'correct'
+
+export interface SelfCheck {
+  similar_reviews: number
+  caught: number
+  missed: number
+  false_alarms: number
+  correct: number
+  original_status: Status
+  adjustment: string | null
+}
+
+export interface Playbook {
+  pattern: string
+  name: string
+  content: string
+  last_refreshed_at: string | null
+}
+
 export interface Decision {
   event_id: string
   status: Status
+  pattern: string | null
+  self_check: SelfCheck
   pattern_strength: number
   pattern_label: 'HIGH' | 'MEDIUM' | 'LOW'
   historical_matches: number
@@ -39,7 +60,7 @@ export interface Decision {
 
 export interface Timeline {
   months: { month: string; failure?: number; near_miss?: number; normal?: number }[]
-  learned: { experience_id: string; timestamp: string; outcome: string; action_taken: string }[]
+  learned: { experience_id: string; timestamp: string; outcome: string; action_taken: string; verdict: Verdict | null }[]
 }
 
 const BASE = import.meta.env.VITE_API_URL ?? ''
@@ -70,5 +91,6 @@ async function call<T>(path: string, body?: unknown): Promise<T> {
 
 export const analyze = (r: Reading, use_memory: boolean) => call<Decision>('/api/analyze', { ...r, use_memory })
 export const recordOutcome = (event_id: string, action: string, outcome: OutcomeKind, notes: string) =>
-  call<{ retained: string; text: string }>('/api/outcome', { event_id, action, outcome, notes })
+  call<{ retained: string; verdict: Verdict | null; pattern: string | null; text: string }>('/api/outcome', { event_id, action, outcome, notes })
 export const timeline = () => call<Timeline>('/api/timeline')
+export const playbooks = () => call<Playbook[]>('/api/playbooks')

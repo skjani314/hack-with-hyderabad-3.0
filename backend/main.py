@@ -60,7 +60,7 @@ def analyze(r: Reading):
         raise HTTPException(503, f"Server missing config {e}; set it in backend/.env")
     except Exception as e:
         raise HTTPException(502, f"Hindsight memory error: {str(e)[:200]}")
-    pending[d["event_id"]] = d["reading"]
+    pending[d["event_id"]] = {k: d[k] for k in ("event_id", "reading", "status", "pattern")} | {"memory": r.use_memory}
     return d
 
 
@@ -68,14 +68,21 @@ def analyze(r: Reading):
 def outcome(o: Outcome):
     if o.event_id not in pending:
         raise HTTPException(404, "Unknown event_id; analyze the reading first")
-    e = agent.outcome_experience(pending[o.event_id], o.event_id, o.action, o.outcome, o.notes)
     try:
-        agent.retain(e)
+        e, verdict = agent.learn(pending[o.event_id], o.action, o.outcome, o.notes)
     except Exception as ex:  # keep the event pending so the engineer can retry
         raise HTTPException(502, f"Hindsight memory error: {str(ex)[:200]}")
     del pending[o.event_id]
-    learned.append(e)
-    return {"retained": e["experience_id"], "text": e["text"]}
+    learned.append(e | {"verdict": verdict})
+    return {"retained": e["experience_id"], "verdict": verdict, "pattern": e["failure_mode"], "text": e["text"]}
+
+
+@app.get("/api/playbooks")
+def playbooks():
+    try:
+        return agent.get_playbooks()
+    except Exception as e:
+        raise HTTPException(502, f"Hindsight memory error: {str(e)[:200]}")
 
 
 @app.get("/api/timeline")
@@ -85,4 +92,4 @@ def timeline():
         m = months.setdefault(e["timestamp"][:7], Counter())
         m[e["event_type"]] += 1
     return {"months": [{"month": k, **v} for k, v in sorted(months.items())],
-            "learned": [{k: e[k] for k in ("experience_id", "timestamp", "outcome", "action_taken")} for e in learned]}
+            "learned": [{k: e[k] for k in ("experience_id", "timestamp", "outcome", "action_taken", "verdict")} for e in learned]}
