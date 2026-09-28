@@ -1,0 +1,35 @@
+{
+  "_note": "Demo seed for seed_demo.py. We are Clarity Hardware selling servers and workstations. All people and companies are fictional. Acme's interactions come from acme_import.json (real Maven CRM rows + generated conversations).",
+  "users": [
+    {"email": "kami@clarity.example", "name": "Kami Bicknell", "role": "sales_exec", "customer_ids": ["acme", "globex"]},
+    {"email": "rahul@clarity.example", "name": "Rahul Mehta", "role": "sales_exec", "customer_ids": ["brightline"]},
+    {"email": "admin@clarity.example", "name": "Sales Manager", "role": "admin", "customer_ids": []}
+  ],
+  "customers": [
+    {"id": "brightline", "name": "Brightline Logistics", "industry": "logistics", "owner": "rahul@clarity.example",
+     "interactions": [
+       {"channel": "crm", "date": "2026-08-10T10:00:00+05:30", "title": "Opportunity created",
+        "text": "CRM opportunity BL-2291: Brightline Logistics (logistics, 1,400 employees, 6 warehouses in South India). Product: MG Special edge servers for warehouse sorting, 6 units. List price $4,900 per unit. Owner: Rahul Mehta. Stage: Engaging. Competitor noted: Nexbyte."},
+       {"channel": "call", "date": "2026-08-14T15:00:00+05:30", "title": "Discovery call (Meera, Arjun)",
+        "participants": [{"name": "Rahul Mehta", "side": "ours", "role": "Account Executive"},
+                         {"name": "Meera Iyer", "side": "customer", "role": "Operations Head"},
+                         {"name": "Arjun Nair", "side": "customer", "role": "CFO"}],
+        "text": "Rahul: What is slowing the sorting lines today?\nMeera: Our scanners send images to a central server and the lag is 3 to 4 seconds per parcel. At peak we miss the truck cut-off.\nRahul: What would a good outcome look like?\nMeera: Under half a second per parcel, and my floor supervisors must be able to restart a box without calling IT. They are not technical.\nArjun: And I need the numbers. Show me cost per parcel before and after, and payback. We almost bought Nexbyte last quarter because they were 12 percent cheaper.\nRahul: Understood. I will send a cost-per-parcel model and set up a pilot on one line.\nArjun: If the pilot shows the gain, I can approve before our Diwali peak."},
+       {"channel": "whatsapp", "date": "2026-08-20T09:00:00+05:30", "title": "Brightline ops group",
+        "text": "20/08/2026, 09:12 - Meera Iyer: Rahul, pilot box is on line 2. Supervisors restarted it twice without IT, they liked the one-button reset\n20/08/2026, 09:15 - Rahul Mehta: Great to hear. How is the latency?\n20/08/2026, 09:31 - Meera Iyer: 0.4 seconds average. Big difference\n22/08/2026, 18:40 - Meera Iyer: Arjun saw the cost-per-parcel sheet. He is asking if support for 3 years is included in the price\n22/08/2026, 18:44 - Rahul Mehta: Support is separate today. I will check if we can bundle 3-year support at a better rate"},
+       {"channel": "email", "date": "2026-08-26T11:00:00+05:30", "title": "Arjun: price vs Nexbyte",
+        "text": "From: Arjun Nair <arjun.nair@brightline.example>\nTo: Rahul Mehta <rahul@clarity.example>\nSubject: Price vs Nexbyte\n\nRahul, the pilot numbers are good: cost per parcel drops 31 percent on line 2. But Nexbyte is still 12 percent cheaper per unit. If you include 3-year support in the unit price, I can justify the difference to the board. Payback needs to be under 14 months. Arjun"},
+       {"channel": "outcome", "date": "2026-09-02T17:00:00+05:30", "title": "Call outcome: Won",
+        "text": "Outcome recorded by the salesperson. Result: Won. What happened: Offered 3-year support bundled into the unit price instead of a discount. Arjun accepted because the cost-per-parcel model showed 11 month payback and the pilot proved the latency gain. Meera's supervisors backed it because of the one-button reset. PO for 6 units signed. Agreed next step: schedule installation for all six warehouses before the Diwali peak."}
+     ]},
+    {"id": "acme", "name": "Acme Corporation", "industry": "technology", "owner": "kami@clarity.example",
+     "from_file": "acme_import.json"},
+    {"id": "globex", "name": "Globex Systems", "industry": "technology", "owner": "kami@clarity.example",
+     "interactions": [
+       {"channel": "crm", "date": "2026-09-18T10:00:00+05:30", "title": "Opportunity created",
+        "text": "CRM opportunity GX-0417: Globex Systems (technology, chip design services, 800 employees). Product: GTX Pro workstations for the verification team, 10 units, list price $4,821 per unit. Owner: Kami Bicknell. Stage: Prospecting. Source: inbound web form."},
+       {"channel": "email", "date": "2026-09-21T09:30:00+05:30", "title": "Lena: verification runs are slow",
+        "text": "From: Lena Park <lena.park@globex.example>\nTo: Kami Bicknell <kami@clarity.example>\nSubject: Verification runs\n\nHi Kami, our verification regressions take 14 hours on current machines and we want them overnight. Our finance lead Omar will want to compare against renting cloud instances, and our security team has a strict hardware onboarding process. Can we talk this week? Lena Park, Verification Lead, Globex Systems"}
+     ]}
+  ]
+}

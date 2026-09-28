@@ -1,6 +1,6 @@
 # Contracts: API ↔ backend ↔ agent
 
-Status: **proposed** (2026-09-28). The agreed shapes between the frontend, the backend API and the agent. If code
+Status: **built** (2026-09-28), with the deviations listed in §9. The agreed shapes between the frontend, the backend API and the agent. If code
 and this doc disagree, one of them is a bug. Companion to [`call-memory-pipeline.md`](./call-memory-pipeline.md),
 [`hindsight-memory-shape.md`](./hindsight-memory-shape.md) and
 [`auth-and-customer-directory.md`](./auth-and-customer-directory.md).
@@ -295,3 +295,18 @@ on Vercel. Options:
   Groq's free-tier token rate.
 - Where does A3's comparison find "the advice given"? Proposed: the backend passes the stored `Report` of
   `request_id` into A3.
+
+## 9. As built (differences from the proposal above)
+
+- **Endpoints added:** `GET /api/prompt-pieces` (the injectable prompt pieces) and `GET/POST /api/settings` (the
+  org's editable main prompt; `POST` is admin-only). `RequestIn` has `pieces: list[str]`; `Report` has `pieces`.
+- **Endpoints removed:** every old single-deal route. `DELETE` is no longer used; resets are done by
+  `seed_demo.py --reset`.
+- **Settings are saved with `POST`,** not `PUT`, to keep the CORS method list to `GET`/`POST`.
+- **Jobs run synchronously** inside the request (§7 option 1). The job record still stores the result.
+- **Company-bank retains are queued** (`retain_async`) so the salesperson doesn't wait for the playbook write.
+- **Insight ids** are `INS-<8 hex>` derived from (customer, document, index), so re-ingesting a document replaces
+  its lessons. The evidence gate matches ids case-insensitively and returns the stored spelling.
+- **Agent A2 input** is `RawInput` (`contracts.py`); a single pasted WhatsApp message (not an export) is stored as
+  plain text.
+- `openapi.json` is exported from the app and `frontend/src/api-types.ts` is generated from it (`npm run gen:api`).

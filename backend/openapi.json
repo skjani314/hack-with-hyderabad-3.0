@@ -1,0 +1,2526 @@
+{
+ "openapi": "3.1.0",
+ "info": {
+  "title": "Sales Memory Agent",
+  "version": "0.1.0"
+ },
+ "paths": {
+  "/api/auth/login": {
+   "post": {
+    "summary": "Login",
+    "operationId": "login_api_auth_login_post",
+    "requestBody": {
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/LoginIn"
+       }
+      }
+     },
+     "required": true
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/LoginOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/auth/me": {
+   "get": {
+    "summary": "Me",
+    "operationId": "me_api_auth_me_get",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UserOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/customers": {
+   "get": {
+    "summary": "Customers",
+    "operationId": "customers_api_customers_get",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/CustomerOut"
+         },
+         "title": "Response Customers Api Customers Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "summary": "Create Customer",
+    "operationId": "create_customer_api_customers_post",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/CustomerIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CustomerOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/customers/{customer_id}": {
+   "get": {
+    "summary": "Customer",
+    "operationId": "customer_api_customers__customer_id__get",
+    "parameters": [
+     {
+      "name": "customer_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Customer Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/CustomerDetail"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/customers/{customer_id}/sources/{document_id}": {
+   "get": {
+    "summary": "Source",
+    "operationId": "source_api_customers__customer_id__sources__document_id__get",
+    "parameters": [
+     {
+      "name": "document_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Document Id"
+      }
+     },
+     {
+      "name": "customer_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Customer Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/SourceText"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/customers/{customer_id}/interactions/preview": {
+   "post": {
+    "summary": "Preview",
+    "description": "Parse / transcribe an upload into Interactions for the salesperson to check. Writes nothing to memory.",
+    "operationId": "preview_api_customers__customer_id__interactions_preview_post",
+    "parameters": [
+     {
+      "name": "customer_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Customer Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "content": {
+      "multipart/form-data": {
+       "schema": {
+        "$ref": "#/components/schemas/Body_preview_api_customers__customer_id__interactions_preview_post"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/InteractionPreview"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/customers/{customer_id}/interactions": {
+   "post": {
+    "summary": "Ingest",
+    "description": "Extract + remember in both banks. Runs inside this request (Vercel functions stop when they respond);\nthe job record keeps the result so the UI can re-read it.",
+    "operationId": "ingest_api_customers__customer_id__interactions_post",
+    "parameters": [
+     {
+      "name": "customer_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Customer Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/IngestIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/JobOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/jobs/{job_id}": {
+   "get": {
+    "summary": "Job",
+    "operationId": "job_api_jobs__job_id__get",
+    "parameters": [
+     {
+      "name": "job_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Job Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/JobOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/prompt-pieces": {
+   "get": {
+    "summary": "Prompt Pieces",
+    "description": "The injectable prompt pieces the executive can add to a request (memory_agent/prompts.py).",
+    "operationId": "prompt_pieces_api_prompt_pieces_get",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/PromptPiece"
+         },
+         "title": "Response Prompt Pieces Api Prompt Pieces Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/customers/{customer_id}/requests": {
+   "post": {
+    "summary": "Create Request",
+    "operationId": "create_request_api_customers__customer_id__requests_post",
+    "parameters": [
+     {
+      "name": "customer_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Customer Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/RequestIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RequestOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "get": {
+    "summary": "List Requests",
+    "operationId": "list_requests_api_customers__customer_id__requests_get",
+    "parameters": [
+     {
+      "name": "customer_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Customer Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/RequestRow"
+         },
+         "title": "Response List Requests Api Customers  Customer Id  Requests Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/customers/{customer_id}/requests/{request_id}": {
+   "get": {
+    "summary": "Get Request",
+    "operationId": "get_request_api_customers__customer_id__requests__request_id__get",
+    "parameters": [
+     {
+      "name": "request_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Request Id"
+      }
+     },
+     {
+      "name": "customer_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Customer Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/RequestOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/customers/{customer_id}/profile": {
+   "get": {
+    "summary": "Profile",
+    "description": "Cached on the customer record; any new interaction clears the cache.",
+    "operationId": "profile_api_customers__customer_id__profile_get",
+    "parameters": [
+     {
+      "name": "customer_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "Customer Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/Profile"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/company/insights": {
+   "get": {
+    "summary": "Company Insights",
+    "operationId": "company_insights_api_company_insights_get",
+    "parameters": [
+     {
+      "name": "industry",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Industry"
+      }
+     },
+     {
+      "name": "role",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Role"
+      }
+     },
+     {
+      "name": "kind",
+      "in": "query",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Kind"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "type": "array",
+         "items": {
+          "$ref": "#/components/schemas/Insight"
+         },
+         "title": "Response Company Insights Api Company Insights Get"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/settings": {
+   "get": {
+    "summary": "Get Settings",
+    "operationId": "get_settings_api_settings_get",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OrgSettings"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   },
+   "post": {
+    "summary": "Save Settings",
+    "description": "Admins edit the org's main prompt. Saving the default text again is the same as a reset.",
+    "operationId": "save_settings_api_settings_post",
+    "parameters": [
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/OrgSettingsIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/OrgSettings"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/api/users/{user_id}/customers": {
+   "post": {
+    "summary": "Assign",
+    "operationId": "assign_api_users__user_id__customers_post",
+    "parameters": [
+     {
+      "name": "user_id",
+      "in": "path",
+      "required": true,
+      "schema": {
+       "type": "string",
+       "title": "User Id"
+      }
+     },
+     {
+      "name": "authorization",
+      "in": "header",
+      "required": false,
+      "schema": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "null"
+        }
+       ],
+       "title": "Authorization"
+      }
+     }
+    ],
+    "requestBody": {
+     "required": true,
+     "content": {
+      "application/json": {
+       "schema": {
+        "$ref": "#/components/schemas/AssignIn"
+       }
+      }
+     }
+    },
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/UserOut"
+        }
+       }
+      }
+     },
+     "422": {
+      "description": "Validation Error",
+      "content": {
+       "application/json": {
+        "schema": {
+         "$ref": "#/components/schemas/HTTPValidationError"
+        }
+       }
+      }
+     }
+    }
+   }
+  },
+  "/": {
+   "get": {
+    "summary": "Health",
+    "operationId": "health__get",
+    "responses": {
+     "200": {
+      "description": "Successful Response",
+      "content": {
+       "application/json": {
+        "schema": {}
+       }
+      }
+     }
+    }
+   }
+  }
+ },
+ "components": {
+  "schemas": {
+   "AssignIn": {
+    "properties": {
+     "customer_ids": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Customer Ids"
+     }
+    },
+    "type": "object",
+    "required": [
+     "customer_ids"
+    ],
+    "title": "AssignIn"
+   },
+   "Body_preview_api_customers__customer_id__interactions_preview_post": {
+    "properties": {
+     "text": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Text"
+     },
+     "file": {
+      "anyOf": [
+       {
+        "type": "string",
+        "contentMediaType": "application/octet-stream"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "File"
+     },
+     "recording_url": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Recording Url"
+     },
+     "channel": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Channel"
+     },
+     "title": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Title"
+     },
+     "occurred_at": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Occurred At"
+     },
+     "participants": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Participants"
+     }
+    },
+    "type": "object",
+    "title": "Body_preview_api_customers__customer_id__interactions_preview_post"
+   },
+   "Cited": {
+    "properties": {
+     "text": {
+      "type": "string",
+      "title": "Text"
+     },
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Sources",
+      "description": "Source ids from memory, e.g. CALL-03, EM-02, or INS-\u2026 for company lessons"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "text",
+     "sources"
+    ],
+    "title": "Cited"
+   },
+   "CustomerDetail": {
+    "properties": {
+     "customer": {
+      "$ref": "#/components/schemas/CustomerOut"
+     },
+     "interactions": {
+      "items": {
+       "$ref": "#/components/schemas/SourceRow"
+      },
+      "type": "array",
+      "title": "Interactions"
+     }
+    },
+    "type": "object",
+    "required": [
+     "customer",
+     "interactions"
+    ],
+    "title": "CustomerDetail"
+   },
+   "CustomerIn": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "maxLength": 40,
+      "minLength": 2,
+      "pattern": "^[a-z0-9][a-z0-9-]*$",
+      "title": "Id"
+     },
+     "name": {
+      "type": "string",
+      "maxLength": 120,
+      "minLength": 2,
+      "title": "Name"
+     },
+     "industry": {
+      "type": "string",
+      "maxLength": 60,
+      "minLength": 2,
+      "title": "Industry"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "name",
+     "industry"
+    ],
+    "title": "CustomerIn"
+   },
+   "CustomerOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "industry": {
+      "type": "string",
+      "title": "Industry"
+     },
+     "bank_id": {
+      "type": "string",
+      "title": "Bank Id"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "creating",
+       "active"
+      ],
+      "title": "Status"
+     },
+     "owner_user_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Owner User Id"
+     },
+     "created_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Created At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "name",
+     "industry",
+     "bank_id",
+     "status"
+    ],
+    "title": "CustomerOut"
+   },
+   "HTTPValidationError": {
+    "properties": {
+     "detail": {
+      "items": {
+       "$ref": "#/components/schemas/ValidationError"
+      },
+      "type": "array",
+      "title": "Detail"
+     }
+    },
+    "type": "object",
+    "title": "HTTPValidationError"
+   },
+   "IngestIn": {
+    "properties": {
+     "interactions": {
+      "items": {
+       "$ref": "#/components/schemas/Interaction"
+      },
+      "type": "array",
+      "maxItems": 40,
+      "minItems": 1,
+      "title": "Interactions"
+     },
+     "request_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Request Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "interactions"
+    ],
+    "title": "IngestIn"
+   },
+   "IngestResult": {
+    "properties": {
+     "schema_version": {
+      "type": "integer",
+      "title": "Schema Version",
+      "default": 1
+     },
+     "remembered": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Remembered"
+     },
+     "company_insights": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Company Insights"
+     },
+     "rejected_insights": {
+      "type": "integer",
+      "title": "Rejected Insights",
+      "default": 0
+     },
+     "summary": {
+      "type": "string",
+      "title": "Summary",
+      "default": ""
+     },
+     "next_steps": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Next Steps",
+      "default": []
+     },
+     "extraction_ok": {
+      "type": "boolean",
+      "title": "Extraction Ok",
+      "default": true
+     },
+     "trace": {
+      "items": {
+       "$ref": "#/components/schemas/TraceStep"
+      },
+      "type": "array",
+      "title": "Trace",
+      "default": []
+     }
+    },
+    "type": "object",
+    "required": [
+     "remembered",
+     "company_insights"
+    ],
+    "title": "IngestResult"
+   },
+   "Insight": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "kind": {
+      "type": "string",
+      "title": "Kind"
+     },
+     "text": {
+      "type": "string",
+      "title": "Text"
+     },
+     "industry": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Industry"
+     },
+     "role": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Role"
+     },
+     "evidence": {
+      "type": "string",
+      "title": "Evidence",
+      "default": "observed_once"
+     },
+     "occurred_at": {
+      "type": "string",
+      "title": "Occurred At",
+      "default": ""
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "kind",
+     "text"
+    ],
+    "title": "Insight"
+   },
+   "Interaction": {
+    "properties": {
+     "document_id": {
+      "type": "string",
+      "title": "Document Id"
+     },
+     "channel": {
+      "type": "string",
+      "enum": [
+       "call",
+       "email",
+       "whatsapp",
+       "crm",
+       "note",
+       "document",
+       "outcome"
+      ],
+      "title": "Channel"
+     },
+     "occurred_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Occurred At"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "participants": {
+      "items": {
+       "$ref": "#/components/schemas/Participant"
+      },
+      "type": "array",
+      "title": "Participants",
+      "default": []
+     },
+     "turns": {
+      "items": {
+       "$ref": "#/components/schemas/Turn"
+      },
+      "type": "array",
+      "title": "Turns",
+      "default": []
+     },
+     "text": {
+      "type": "string",
+      "title": "Text"
+     },
+     "source_ref": {
+      "type": "string",
+      "title": "Source Ref",
+      "default": ""
+     },
+     "fingerprints": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Fingerprints",
+      "default": []
+     },
+     "mode": {
+      "type": "string",
+      "enum": [
+       "replace",
+       "append"
+      ],
+      "title": "Mode",
+      "default": "replace"
+     },
+     "request_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Request Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "document_id",
+     "channel",
+     "occurred_at",
+     "title",
+     "text"
+    ],
+    "title": "Interaction"
+   },
+   "InteractionPreview": {
+    "properties": {
+     "schema_version": {
+      "type": "integer",
+      "title": "Schema Version",
+      "default": 1
+     },
+     "interactions": {
+      "items": {
+       "$ref": "#/components/schemas/Interaction"
+      },
+      "type": "array",
+      "title": "Interactions"
+     },
+     "detected_channel": {
+      "type": "string",
+      "enum": [
+       "call",
+       "email",
+       "whatsapp",
+       "crm",
+       "note",
+       "document",
+       "outcome"
+      ],
+      "title": "Detected Channel"
+     },
+     "new_fingerprints": {
+      "type": "integer",
+      "title": "New Fingerprints",
+      "default": 0
+     },
+     "duplicate_fingerprints": {
+      "type": "integer",
+      "title": "Duplicate Fingerprints",
+      "default": 0
+     },
+     "unknown_names": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Unknown Names",
+      "default": []
+     },
+     "warnings": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Warnings",
+      "default": []
+     },
+     "trace": {
+      "items": {
+       "$ref": "#/components/schemas/TraceStep"
+      },
+      "type": "array",
+      "title": "Trace",
+      "default": []
+     }
+    },
+    "type": "object",
+    "required": [
+     "interactions",
+     "detected_channel"
+    ],
+    "title": "InteractionPreview"
+   },
+   "JobOut": {
+    "properties": {
+     "job_id": {
+      "type": "string",
+      "title": "Job Id"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "running",
+       "done",
+       "failed"
+      ],
+      "title": "Status"
+     },
+     "stage": {
+      "type": "string",
+      "title": "Stage"
+     },
+     "result": {
+      "anyOf": [
+       {
+        "$ref": "#/components/schemas/IngestResult"
+       },
+       {
+        "type": "null"
+       }
+      ]
+     },
+     "error": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Error"
+     }
+    },
+    "type": "object",
+    "required": [
+     "job_id",
+     "status",
+     "stage"
+    ],
+    "title": "JobOut"
+   },
+   "LoginIn": {
+    "properties": {
+     "email": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 3,
+      "title": "Email"
+     },
+     "password": {
+      "type": "string",
+      "maxLength": 200,
+      "minLength": 1,
+      "title": "Password"
+     }
+    },
+    "type": "object",
+    "required": [
+     "email",
+     "password"
+    ],
+    "title": "LoginIn"
+   },
+   "LoginOut": {
+    "properties": {
+     "token": {
+      "type": "string",
+      "title": "Token"
+     },
+     "user": {
+      "$ref": "#/components/schemas/UserOut"
+     }
+    },
+    "type": "object",
+    "required": [
+     "token",
+     "user"
+    ],
+    "title": "LoginOut"
+   },
+   "ObjectionPlay": {
+    "properties": {
+     "objection": {
+      "type": "string",
+      "title": "Objection"
+     },
+     "raised_by": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Raised By"
+     },
+     "status": {
+      "type": "string",
+      "enum": [
+       "open",
+       "resolved"
+      ],
+      "title": "Status"
+     },
+     "response": {
+      "type": "string",
+      "title": "Response",
+      "description": "What to say back, first person, natural spoken words"
+     },
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Sources"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "objection",
+     "raised_by",
+     "status",
+     "response",
+     "sources"
+    ],
+    "title": "ObjectionPlay"
+   },
+   "OrgSettings": {
+    "properties": {
+     "main_prompt": {
+      "type": "string",
+      "title": "Main Prompt"
+     },
+     "default_prompt": {
+      "type": "string",
+      "title": "Default Prompt"
+     },
+     "is_default": {
+      "type": "boolean",
+      "title": "Is Default"
+     },
+     "locked_rules": {
+      "type": "string",
+      "title": "Locked Rules"
+     },
+     "placeholders": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Placeholders"
+     },
+     "updated_by": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Updated By"
+     },
+     "updated_at": {
+      "anyOf": [
+       {
+        "type": "string",
+        "format": "date-time"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Updated At"
+     }
+    },
+    "type": "object",
+    "required": [
+     "main_prompt",
+     "default_prompt",
+     "is_default",
+     "locked_rules",
+     "placeholders"
+    ],
+    "title": "OrgSettings"
+   },
+   "OrgSettingsIn": {
+    "properties": {
+     "main_prompt": {
+      "type": "string",
+      "maxLength": 4000,
+      "minLength": 20,
+      "title": "Main Prompt"
+     }
+    },
+    "type": "object",
+    "required": [
+     "main_prompt"
+    ],
+    "title": "OrgSettingsIn"
+   },
+   "Participant": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "side": {
+      "type": "string",
+      "enum": [
+       "ours",
+       "customer",
+       "unknown"
+      ],
+      "title": "Side",
+      "default": "customer"
+     },
+     "role": {
+      "type": "string",
+      "title": "Role",
+      "default": ""
+     }
+    },
+    "type": "object",
+    "required": [
+     "name"
+    ],
+    "title": "Participant"
+   },
+   "Profile": {
+    "properties": {
+     "pain_points": {
+      "items": {
+       "$ref": "#/components/schemas/ProfileItem"
+      },
+      "type": "array",
+      "title": "Pain Points"
+     },
+     "goals": {
+      "items": {
+       "$ref": "#/components/schemas/ProfileItem"
+      },
+      "type": "array",
+      "title": "Goals"
+     },
+     "objections": {
+      "items": {
+       "$ref": "#/components/schemas/ProfileItem"
+      },
+      "type": "array",
+      "title": "Objections"
+     },
+     "stakeholders": {
+      "items": {
+       "$ref": "#/components/schemas/ProfileItem"
+      },
+      "type": "array",
+      "title": "Stakeholders"
+     },
+     "competitors": {
+      "items": {
+       "$ref": "#/components/schemas/ProfileItem"
+      },
+      "type": "array",
+      "title": "Competitors"
+     },
+     "requirements": {
+      "items": {
+       "$ref": "#/components/schemas/ProfileItem"
+      },
+      "type": "array",
+      "title": "Requirements"
+     },
+     "commitments": {
+      "items": {
+       "$ref": "#/components/schemas/ProfileItem"
+      },
+      "type": "array",
+      "title": "Commitments"
+     },
+     "pricing": {
+      "items": {
+       "$ref": "#/components/schemas/ProfileItem"
+      },
+      "type": "array",
+      "title": "Pricing"
+     },
+     "schema_version": {
+      "type": "integer",
+      "title": "Schema Version",
+      "default": 1
+     },
+     "dropped": {
+      "type": "integer",
+      "title": "Dropped",
+      "default": 0
+     }
+    },
+    "type": "object",
+    "required": [
+     "pain_points",
+     "goals",
+     "objections",
+     "stakeholders",
+     "competitors",
+     "requirements",
+     "commitments",
+     "pricing"
+    ],
+    "title": "Profile"
+   },
+   "ProfileItem": {
+    "properties": {
+     "text": {
+      "type": "string",
+      "title": "Text"
+     },
+     "detail": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Detail",
+      "description": "Who / role / status / due, when relevant"
+     },
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Sources"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "text",
+     "detail",
+     "sources"
+    ],
+    "title": "ProfileItem"
+   },
+   "PromptPiece": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "group": {
+      "type": "string",
+      "enum": [
+       "call_type",
+       "focus"
+      ],
+      "title": "Group"
+     },
+     "label": {
+      "type": "string",
+      "title": "Label"
+     },
+     "text": {
+      "type": "string",
+      "title": "Text"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "group",
+     "label",
+     "text"
+    ],
+    "title": "PromptPiece"
+   },
+   "Report": {
+    "properties": {
+     "answer": {
+      "type": "string",
+      "title": "Answer",
+      "description": "Direct answer to the salesperson's question, under 120 words"
+     },
+     "summary": {
+      "type": "string",
+      "title": "Summary",
+      "description": "Where the deal stands, 2 sentences"
+     },
+     "what_to_ask": {
+      "items": {
+       "$ref": "#/components/schemas/Cited"
+      },
+      "type": "array",
+      "title": "What To Ask"
+     },
+     "open_items": {
+      "items": {
+       "$ref": "#/components/schemas/Cited"
+      },
+      "type": "array",
+      "title": "Open Items"
+     },
+     "stakeholders": {
+      "items": {
+       "$ref": "#/components/schemas/StakeholderPlay"
+      },
+      "type": "array",
+      "title": "Stakeholders"
+     },
+     "objections": {
+      "items": {
+       "$ref": "#/components/schemas/ObjectionPlay"
+      },
+      "type": "array",
+      "title": "Objections"
+     },
+     "risks": {
+      "items": {
+       "$ref": "#/components/schemas/Cited"
+      },
+      "type": "array",
+      "title": "Risks"
+     },
+     "playbook_tips": {
+      "items": {
+       "$ref": "#/components/schemas/Cited"
+      },
+      "type": "array",
+      "title": "Playbook Tips"
+     },
+     "call_script": {
+      "items": {
+       "$ref": "#/components/schemas/ScriptLine"
+      },
+      "type": "array",
+      "title": "Call Script"
+     },
+     "next_steps": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Next Steps"
+     },
+     "follow_up_email": {
+      "type": "string",
+      "title": "Follow Up Email"
+     },
+     "schema_version": {
+      "type": "integer",
+      "title": "Schema Version",
+      "default": 1
+     },
+     "memory_used": {
+      "additionalProperties": {
+       "type": "integer"
+      },
+      "type": "object",
+      "title": "Memory Used",
+      "default": {}
+     },
+     "pieces": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Pieces",
+      "default": []
+     },
+     "dropped": {
+      "type": "integer",
+      "title": "Dropped",
+      "default": 0
+     },
+     "trace": {
+      "items": {
+       "$ref": "#/components/schemas/TraceStep"
+      },
+      "type": "array",
+      "title": "Trace",
+      "default": []
+     }
+    },
+    "type": "object",
+    "required": [
+     "answer",
+     "summary",
+     "what_to_ask",
+     "open_items",
+     "stakeholders",
+     "objections",
+     "risks",
+     "playbook_tips",
+     "call_script",
+     "next_steps",
+     "follow_up_email"
+    ],
+    "title": "Report"
+   },
+   "RequestIn": {
+    "properties": {
+     "prompt": {
+      "type": "string",
+      "maxLength": 1000,
+      "minLength": 2,
+      "title": "Prompt"
+     },
+     "pieces": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "maxItems": 8,
+      "title": "Pieces",
+      "default": []
+     },
+     "parent_request_id": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Parent Request Id"
+     }
+    },
+    "type": "object",
+    "required": [
+     "prompt"
+    ],
+    "title": "RequestIn"
+   },
+   "RequestOut": {
+    "properties": {
+     "request_id": {
+      "type": "string",
+      "title": "Request Id"
+     },
+     "customer_id": {
+      "type": "string",
+      "title": "Customer Id"
+     },
+     "prompt": {
+      "type": "string",
+      "title": "Prompt"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "report": {
+      "$ref": "#/components/schemas/Report"
+     }
+    },
+    "type": "object",
+    "required": [
+     "request_id",
+     "customer_id",
+     "prompt",
+     "created_at",
+     "report"
+    ],
+    "title": "RequestOut"
+   },
+   "RequestRow": {
+    "properties": {
+     "request_id": {
+      "type": "string",
+      "title": "Request Id"
+     },
+     "prompt": {
+      "type": "string",
+      "title": "Prompt"
+     },
+     "created_at": {
+      "type": "string",
+      "format": "date-time",
+      "title": "Created At"
+     },
+     "summary": {
+      "type": "string",
+      "title": "Summary"
+     }
+    },
+    "type": "object",
+    "required": [
+     "request_id",
+     "prompt",
+     "created_at",
+     "summary"
+    ],
+    "title": "RequestRow"
+   },
+   "ScriptLine": {
+    "properties": {
+     "stage": {
+      "type": "string",
+      "enum": [
+       "Opening",
+       "Recap",
+       "Discovery",
+       "Value",
+       "Objections",
+       "Close"
+      ],
+      "title": "Stage"
+     },
+     "say": {
+      "type": "string",
+      "title": "Say"
+     },
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Sources"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "stage",
+     "say",
+     "sources"
+    ],
+    "title": "ScriptLine"
+   },
+   "SourceRow": {
+    "properties": {
+     "document_id": {
+      "type": "string",
+      "title": "Document Id"
+     },
+     "channel": {
+      "type": "string",
+      "title": "Channel"
+     },
+     "title": {
+      "type": "string",
+      "title": "Title"
+     },
+     "occurred_at": {
+      "type": "string",
+      "title": "Occurred At"
+     },
+     "people": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "People"
+     },
+     "memories": {
+      "anyOf": [
+       {
+        "type": "integer"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Memories"
+     }
+    },
+    "type": "object",
+    "required": [
+     "document_id",
+     "channel",
+     "title",
+     "occurred_at"
+    ],
+    "title": "SourceRow"
+   },
+   "SourceText": {
+    "properties": {
+     "document_id": {
+      "type": "string",
+      "title": "Document Id"
+     },
+     "text": {
+      "type": "string",
+      "title": "Text"
+     }
+    },
+    "type": "object",
+    "required": [
+     "document_id",
+     "text"
+    ],
+    "title": "SourceText"
+   },
+   "StakeholderPlay": {
+    "properties": {
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "role": {
+      "anyOf": [
+       {
+        "type": "string"
+       },
+       {
+        "type": "null"
+       }
+      ],
+      "title": "Role"
+     },
+     "cares_about": {
+      "type": "string",
+      "title": "Cares About"
+     },
+     "how_to_win": {
+      "type": "string",
+      "title": "How To Win"
+     },
+     "sources": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Sources"
+     }
+    },
+    "additionalProperties": false,
+    "type": "object",
+    "required": [
+     "name",
+     "role",
+     "cares_about",
+     "how_to_win",
+     "sources"
+    ],
+    "title": "StakeholderPlay"
+   },
+   "TraceStep": {
+    "properties": {
+     "step": {
+      "type": "string",
+      "title": "Step"
+     },
+     "detail": {
+      "type": "string",
+      "title": "Detail",
+      "default": ""
+     },
+     "result": {
+      "type": "string",
+      "title": "Result",
+      "default": ""
+     }
+    },
+    "type": "object",
+    "required": [
+     "step"
+    ],
+    "title": "TraceStep"
+   },
+   "Turn": {
+    "properties": {
+     "speaker": {
+      "type": "string",
+      "title": "Speaker"
+     },
+     "side": {
+      "type": "string",
+      "enum": [
+       "ours",
+       "customer",
+       "unknown"
+      ],
+      "title": "Side",
+      "default": "unknown"
+     },
+     "text": {
+      "type": "string",
+      "title": "Text"
+     },
+     "at": {
+      "type": "string",
+      "title": "At",
+      "default": ""
+     },
+     "speaker_inferred": {
+      "type": "boolean",
+      "title": "Speaker Inferred",
+      "default": false
+     }
+    },
+    "type": "object",
+    "required": [
+     "speaker",
+     "text"
+    ],
+    "title": "Turn"
+   },
+   "UserOut": {
+    "properties": {
+     "id": {
+      "type": "string",
+      "title": "Id"
+     },
+     "email": {
+      "type": "string",
+      "title": "Email"
+     },
+     "name": {
+      "type": "string",
+      "title": "Name"
+     },
+     "role": {
+      "type": "string",
+      "enum": [
+       "sales_exec",
+       "admin"
+      ],
+      "title": "Role"
+     },
+     "customer_ids": {
+      "items": {
+       "type": "string"
+      },
+      "type": "array",
+      "title": "Customer Ids"
+     }
+    },
+    "type": "object",
+    "required": [
+     "id",
+     "email",
+     "name",
+     "role",
+     "customer_ids"
+    ],
+    "title": "UserOut"
+   },
+   "ValidationError": {
+    "properties": {
+     "loc": {
+      "items": {
+       "anyOf": [
+        {
+         "type": "string"
+        },
+        {
+         "type": "integer"
+        }
+       ]
+      },
+      "type": "array",
+      "title": "Location"
+     },
+     "msg": {
+      "type": "string",
+      "title": "Message"
+     },
+     "type": {
+      "type": "string",
+      "title": "Error Type"
+     },
+     "input": {
+      "title": "Input"
+     },
+     "ctx": {
+      "type": "object",
+      "title": "Context"
+     }
+    },
+    "type": "object",
+    "required": [
+     "loc",
+     "msg",
+     "type"
+    ],
+    "title": "ValidationError"
+   }
+  }
+ }
+}

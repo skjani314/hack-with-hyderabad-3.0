@@ -1,101 +1,111 @@
-export type Channel = 'crm' | 'email' | 'call' | 'whatsapp' | 'outcome' | 'note'
+import type { components } from './api-types'
 
-/** A document in the Hindsight memory bank (the only source of truth). */
-export interface Source {
-  id: string
-  channel: Channel
-  date: string
-  title: string
-  people: string | null
-  memories: number | null
-}
-
-export interface DealInfo {
-  deal_id: string
-  customer: string
-  product: string
-  industry: string
-  value: string
-  stage: string
-  salesperson: string
-  sources: string
-}
-
-export interface DealResponse {
-  deal: DealInfo | null
-  sources: Source[]
-  memory_count: number
-  sample_remaining: number
-}
-
-type Sourced<T> = T & { sources: string[] }
-export interface Profile {
-  pain_points: Sourced<{ text: string }>[]
-  objections: Sourced<{ text: string; raised_by: string; status: string }>[]
-  stakeholders: Sourced<{ name: string; role: string; cares_about: string }>[]
-  competitors: Sourced<{ name: string; notes: string }>[]
-  commitments: Sourced<{ text: string; owner: string; due: string; status: string }>[]
-  pricing: Sourced<{ text: string }>[]
-}
-
-/** One thing the agent did with memory: a prefetch recall, or a tool it chose to call. */
-export interface TraceStep {
-  step: string
-  detail: string
-  result?: string
-}
-
-export interface ChatAnswer {
-  answer: string
-  sources: string[]
-  trace: TraceStep[]
-  used_memory: boolean
-  memory_count: number
-}
-
-export interface CallPrep {
-  summary: string
-  insights: Sourced<{ text: string; why_it_matters: string }>[]
-  risks: Sourced<{ text: string; why_it_matters: string }>[]
-  stakeholders: Sourced<{ name: string; role: string; cares_about: string; how_to_win_them: string }>[]
-  objections: Sourced<{ objection: string; raised_by: string; response: string }>[]
-  call_script: Sourced<{ stage: string; say: string }>[]
-  next_steps: string[]
-  follow_up_email: string
-  dropped: number
-  trace: TraceStep[]
-}
+/** Types are generated from the backend's OpenAPI schema (npm run gen:api), never written by hand. */
+type S = components['schemas']
+export type User = S['UserOut']
+export type Customer = S['CustomerOut']
+export type CustomerDetail = S['CustomerDetail']
+export type SourceRow = S['SourceRow']
+export type Interaction = S['Interaction']
+export type Participant = S['Participant']
+export type Preview = S['InteractionPreview']
+export type Job = S['JobOut']
+export type IngestResult = S['IngestResult']
+export type Report = S['Report']
+export type RequestOut = S['RequestOut']
+export type RequestRow = S['RequestRow']
+export type Profile = S['Profile']
+export type ProfileItem = S['ProfileItem']
+export type Insight = S['Insight']
+export type TraceStep = S['TraceStep']
+export type PromptPiece = S['PromptPiece']
+export type OrgSettings = S['OrgSettings']
+export type Channel = Interaction['channel']
 
 const BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
 
-function demoKey() {
-  try { return localStorage.getItem('demoKey') ?? '' } catch { return '' }
-}
-
-async function call<T>(path: string, method = 'GET', body?: unknown): Promise<T> {
-  const r = await fetch(BASE + path, {
-    method,
-    headers: { 'Content-Type': 'application/json', 'X-Demo-Key': demoKey() },
-    body: body ? JSON.stringify(body) : undefined,
-  })
-  if (r.status === 401) {
-    const k = prompt('Demo key')
-    try { localStorage.setItem('demoKey', k ?? '') } catch { /* storage blocked */ }
-    throw new Error('Demo key needed, try again')
+export class ApiError extends Error {
+  readonly status: number
+  readonly code: string
+  constructor(message: string, status: number, code: string) {
+    super(message)
+    this.status = status
+    this.code = code
   }
-  const j = await r.json().catch(() => ({ detail: `Server error ${r.status}` }))
-  if (!r.ok) throw new Error(Array.isArray(j.detail) ? j.detail.map((d: { msg: string }) => d.msg).join('; ') : j.detail)
-  return j
 }
 
-export const getDeal = () => call<DealResponse>('/api/deal')
-export const sourceText = (id: string) => call<{ id: string; text: string }>(`/api/sources/${encodeURIComponent(id)}`)
-export const addSource = (channel: Channel, title: string, content: string, people: string) =>
-  call<{ remembered: string }>('/api/sources', 'POST', { channel, title, content, people })
-export const importSample = (mode: 'next' | 'all') => call<{ remembered: string[] }>('/api/import', 'POST', { mode })
-export const getProfile = () => call<{ profile: Profile | null; dropped: number }>('/api/profile')
-export const ask = (question: string, use_memory: boolean) => call<ChatAnswer>('/api/chat', 'POST', { question, use_memory })
-export const prepareCall = (goal: string) => call<CallPrep>('/api/prep', 'POST', { goal })
-export const recordOutcome = (summary: string, result: string, next_step: string) =>
-  call<{ remembered: string }>('/api/outcome', 'POST', { summary, result, next_step })
-export const resetMemory = () => call<{ reset: boolean }>('/api/memory', 'DELETE')
+let token = ''
+try { token = localStorage.getItem('token') ?? '' } catch { /* storage blocked */ }
+
+export function setToken(t: string) {
+  token = t
+  try { if (t) localStorage.setItem('token', t); else localStorage.removeItem('token') } catch { /* storage blocked */ }
+}
+export const hasToken = () => !!token
+
+let onUnauthorized = () => {}
+export const whenUnauthorized = (fn: () => void) => { onUnauthorized = fn }
+
+async function call<T>(path: string, init: { method?: string; json?: unknown; form?: FormData } = {}): Promise<T> {
+  const headers: Record<string, string> = {}
+  if (token) headers.Authorization = `Bearer ${token}`
+  if (init.json !== undefined) headers['Content-Type'] = 'application/json'
+  let r: Response
+  try {
+    r = await fetch(BASE + path, {
+      method: init.method ?? (init.json !== undefined || init.form ? 'POST' : 'GET'), headers,
+      body: init.form ?? (init.json !== undefined ? JSON.stringify(init.json) : undefined),
+    })
+  } catch {
+    throw new ApiError('Cannot reach the server. Check your connection.', 0, 'network')
+  }
+  const body = await r.json().catch(() => ({}))
+  if (!r.ok) {
+    if (r.status === 401 && token) { setToken(''); onUnauthorized() }
+    const message = body.message ?? (Array.isArray(body.detail) ? body.detail.map((d: { msg: string }) => d.msg).join('; ')
+      : body.detail) ?? (r.status === 413 ? 'File too large. For long calls use the recording URL.' : `Server error ${r.status}`)
+    throw new ApiError(message, r.status, body.error ?? 'error')
+  }
+  return body as T
+}
+
+export const login = (email: string, password: string) =>
+  call<S['LoginOut']>('/api/auth/login', { json: { email, password } })
+export const me = () => call<User>('/api/auth/me')
+
+export const listCustomers = () => call<Customer[]>('/api/customers')
+export const createCustomer = (id: string, name: string, industry: string) =>
+  call<Customer>('/api/customers', { json: { id, name, industry } })
+export const getCustomer = (id: string) => call<CustomerDetail>(`/api/customers/${encodeURIComponent(id)}`)
+export const sourceText = (id: string, doc: string) =>
+  call<S['SourceText']>(`/api/customers/${encodeURIComponent(id)}/sources/${encodeURIComponent(doc)}`)
+
+export interface PreviewInput {
+  text?: string; file?: File; recordingUrl?: string; channel?: Channel | ''; title?: string
+  occurredAt?: string; participants?: Participant[]
+}
+export function previewInteraction(id: string, p: PreviewInput) {
+  const f = new FormData()
+  if (p.file) f.append('file', p.file)
+  if (p.text) f.append('text', p.text)
+  if (p.recordingUrl) f.append('recording_url', p.recordingUrl)
+  if (p.channel) f.append('channel', p.channel)
+  if (p.title) f.append('title', p.title)
+  if (p.occurredAt) f.append('occurred_at', p.occurredAt)
+  if (p.participants?.length) f.append('participants', JSON.stringify(p.participants))
+  return call<Preview>(`/api/customers/${encodeURIComponent(id)}/interactions/preview`, { form: f })
+}
+export const ingest = (id: string, interactions: Interaction[], requestId?: string | null) =>
+  call<Job>(`/api/customers/${encodeURIComponent(id)}/interactions`, { json: { interactions, request_id: requestId ?? null } })
+
+export const ask = (id: string, prompt: string, pieces: string[], parent?: string | null) =>
+  call<RequestOut>(`/api/customers/${encodeURIComponent(id)}/requests`, { json: { prompt, pieces, parent_request_id: parent ?? null } })
+export const listPromptPieces = () => call<PromptPiece[]>('/api/prompt-pieces')
+export const getSettings = () => call<OrgSettings>('/api/settings')
+export const saveSettings = (main_prompt: string) => call<OrgSettings>('/api/settings', { json: { main_prompt } })
+export const listRequests = (id: string) => call<RequestRow[]>(`/api/customers/${encodeURIComponent(id)}/requests`)
+export const getRequest = (id: string, rid: string) =>
+  call<RequestOut>(`/api/customers/${encodeURIComponent(id)}/requests/${encodeURIComponent(rid)}`)
+export const getProfile = (id: string) => call<Profile>(`/api/customers/${encodeURIComponent(id)}/profile`)
+export const listInsights = (industry?: string) =>
+  call<Insight[]>(`/api/company/insights${industry ? `?industry=${encodeURIComponent(industry)}` : ''}`)

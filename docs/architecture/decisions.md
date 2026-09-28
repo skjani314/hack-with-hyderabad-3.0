@@ -6,6 +6,10 @@ Short log of what is decided, newest first. Details live in the linked docs.
 
 | # | Decision | Why / detail |
 |---|---|---|
+| D17 | **Old single-deal code removed** (`agent.py`, `sales_agent.py`, old routes) once the v2 UI replaced it: two agents side by side is how drift starts. | CHANGELOG v2 |
+| D16 | **Uploads ≤ 4 MB; long calls by recording URL.** Vercel caps request bodies at 4.5 MB; Groq's transcription API accepts `url=` and fetches the audio itself. Functions run up to 300 s (Hobby max). | Vercel functions limits doc; Groq SDK `transcriptions.create(url=…)` |
+| D15 | **The org's main prompt lives in MongoDB (`settings/org`) and admins edit it on the Settings page.** The evidence rules are a separate locked block in code, because the evidence gate depends on them. Placeholders `{exec_name}`, `{customer}`, `{industry}`. | `memory_agent/prompts.py`, `POST /api/settings` |
+| D14 | **Layered report prompt**: org main prompt + locked rules + prompt pieces the executive picks (one call type, any focus areas; catalog in `prompts.py`) + the executive's own question. | `memory_agent/prompts.py`, `GET /api/prompt-pieces` |
 | D13 | **Every input is split, every output uses both banks.** Each new interaction goes through one structured extraction: customer-specific facts (and the source text) → the customer's bank; generalised, name-free lessons → `company`. Every report/answer recalls **both** banks, with the recall queries shaped by the exec's prompt and the company recall filtered by the customer's industry and stakeholder roles. | The core of the product. [`call-memory-pipeline.md`](./call-memory-pipeline.md) §2b, §4 |
 | D12 | **Auth tokens:** JWT signed with `JWT_SECRET` (random 64-char string, generated into the root `.env`). The same value goes into the Vercel backend env. Rotating it logs everyone out. | [`auth-and-customer-directory.md`](./auth-and-customer-directory.md) |
 | D11 | **We (this team) build the whole repo**; no parallel edit conflicts to plan for. | |
@@ -32,8 +36,11 @@ From Groq's structured-outputs docs:
   schema does its memory reads **before** the LLM call (prefetch recall), not through tools during it. Tool
   loops, if kept, return text and are followed by a structured call.
 
-**To verify in code:** that Pydantic AI's Groq model (`pydantic-ai-slim[groq]==2.51.0`) sends
-`response_format: json_schema` with `strict: true` when asked for native output. Not checked yet.
+**Verified** (2026-09-28, live request captured): `Agent(..., output_type=NativeOutput(Model, strict=True))` on
+`pydantic-ai-slim[groq]==2.51.0` sends `response_format: {type: json_schema, strict: true}` and no tools, for
+`openai/gpt-oss-120b` and `openai/gpt-oss-20b`. For `qwen/qwen3.8-27b` pydantic-ai's profile refuses native output,
+so `memory_agent/llm.py` sets `supports_json_schema_output: True` on its profile; then it works too.
+Groq free-tier limits on this key: 8,000 tokens/minute and 1,000 requests/day per model.
 
 ## Still to decide
 

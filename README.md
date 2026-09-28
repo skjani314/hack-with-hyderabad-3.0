@@ -2,104 +2,115 @@
 
 **Remembers the customer so the salesperson doesn't have to.**
 
-Sales conversations are scattered across CRM, email, calls and WhatsApp. This agent stores every conversation in
-[Hindsight](https://hindsight.vectorize.io/) memory, extracts what matters (pain points, objections, stakeholders,
-competitors, commitments, pricing), and answers the salesperson's questions from that memory, with every claim
-linked to the message it came from. Record a call outcome and the next answer uses it.
+Sales conversations are scattered across calls, email, WhatsApp and the CRM. A sales executive logs in, picks a
+customer, adds what happened (a call recording, a transcript, an email, a WhatsApp export, a CRM export or a file),
+and asks for a brief before the next call. The agent answers from **two memories**: everything this customer said,
+and everything the company has learned from all its other customers. Every claim links to the message it came from.
 
 ## How Hindsight memory is used
 
-**Hindsight is the only source of truth.** The deal record, every conversation and every outcome are documents in
-the `sales-memory` bank; the API reads them back from Hindsight on every request and keeps no database of its own.
+```
+                ┌── customer facts + source text ──► bank  cust-<id>   (one per customer)
+new interaction ┤
+ (one extraction)└── generalised, name-free lessons ─► bank  company    (shared playbook)
+
+brief = recall(cust-<id>) + recall(company, filtered by industry) → Groq (strict Pydantic output) → cited report
+```
 
 | Step | Hindsight operation |
 |---|---|
-| Remember a conversation (paste, connector import, or outcome) | `retain` with the source id, channel, date and a deal tag. The bank is configured with sales-specific extraction instructions (`retain_custom_instructions`). |
-| Show what memory holds | `list_documents` / `get_document` (original text) |
-| Build the deal profile | `reflect` with a JSON response schema over the deal's memories |
-| Answer a question / prepare a call | the agent: `recall` prefetch + recall/read tools (below) |
-| Record an outcome | `retain` as a new `OUT-xx` memory; later answers use it |
+| New customer | `create_bank` for `cust-<id>` with sales extraction instructions |
+| Remember an interaction | `retain` the source text into `cust-<id>` (one document per call / email / WhatsApp day / file, `document_id` = `CALL-07`, `EM-12`, `WA-2026-09-24` …); WhatsApp days use `update_mode: append` |
+| Learn for the company | `retain` each generalised lesson into `company`, tagged `industry:*`, `role:*`, `kind:*` (queued, `retain_async`) |
+| Brief / answer | `recall` the customer bank (3 angles) + the company bank (this industry, then all) → one Groq call |
+| Profile | `recall` 4 angles → Groq → cached in MongoDB until memory changes |
+| Show sources | `list_documents` / `get_document` |
 
-**Evidence gate (ours, not Hindsight's):** every profile item and answer citation must point to a message that is
-actually in memory. Anything else is removed, and the UI says how many unsourced claims were dropped.
+**Our additions on top of Hindsight:**
+- **The split.** One Groq extraction per interaction separates customer facts from reusable lessons. A lesson that
+  names the customer or any of its people is withheld, so one customer's data never reaches another's brief.
+- **The learning loop.** When an interaction is linked to an earlier brief, the extraction compares the advice with
+  what happened and writes `what_worked` / `what_failed` lessons marked `confirmed_outcome`.
+- **The evidence gate.** Every cited id must exist in memory; unsourced claims are dropped and counted.
+- **Structured output everywhere.** Every LLM call returns a Pydantic model through Groq strict structured outputs.
 
-## The agent
+## The prompt
 
-A **Groq LLM** (`openai/gpt-oss-120b`, falling back to `qwen/qwen3.8-27b` and `openai/gpt-oss-20b`) built with
-**[Pydantic AI](https://ai.pydantic.dev/)**, one of Hindsight's officially integrated agent frameworks.
+A brief's prompt is built in layers: the **organisation's main prompt** (what every brief must deliver; stored in
+MongoDB and edited by an admin on the Settings page) + **locked evidence rules** + **prompt pieces** the executive
+picks (call type: discovery, negotiation, closing …; focus: price objection, ROI, security …) + **their own
+question**. See `backend/memory_agent/prompts.py`.
 
-- **Why an LLM:** Hindsight recall returns separate facts. Turning them into a prioritised plan and a natural talk
-  track for each stakeholder is reasoning and writing.
-- **Memory prefetch:** before the LLM runs, the relevant facts are recalled from Hindsight (and the conversation list
-  is loaded), so the agent usually answers in one step. This keeps a run inside Groq's free-tier token limits.
-- **Tools the agent can choose:** `recall_memory` (source-aware: every fact keeps its `[EM-02]` id), `read_source`
-  (original message text), `save_note` (when the salesperson says "remember that…"). The stock Hindsight tool drops
-  source ids, which the evidence gate needs, so these are built on the Hindsight client.
-- **Typed outputs:** chat answers, and a **call prep** with insights, risks, stakeholder plays, objection handling,
-  a call script, next steps and a follow-up email.
-- **Memory trace:** every answer shows what the agent recalled and read ("🧠 Agent memory work").
-- **Memory off** (demo "before"): the same LLM with no memory at all, so the answer is generic.
+## Layout
+
+| Path | What |
+|---|---|
+| `backend/main.py`, `api_v2.py` | FastAPI app and routes |
+| `backend/auth.py`, `db.py` | Login (bcrypt + JWT), per-customer permission check, MongoDB |
+| `backend/contracts.py` | Every request/response and LLM schema (Pydantic) |
+| `backend/memory_agent/` | The agent: parsing, speech-to-text, extraction, Hindsight access, reports |
+| `backend/seed_demo.py`, `sample_data/` | Demo logins, three customers, 20 interactions |
+| `backend/build_deal.py` | Builds `acme_import.json` from the Maven Analytics CRM dataset |
+| `frontend/src/` | React app; `api-types.ts` is generated from the backend's OpenAPI schema |
+| `docs/architecture/` | Design: pipeline, memory shape, auth, contracts, decisions |
 
 ## Data
 
-- **CRM:** real rows from the [Maven Analytics CRM Sales Opportunities](https://mavenanalytics.io/data-playground)
-  dataset (a fictional B2B hardware company: 85 accounts, 8,800 opportunities). The deal is opportunity `S3W6Q07M`
-  (Acme Corporation, GTX Plus Pro); account facts, sales agent, manager and Acme's 58 closed won/lost deals come from
-  the CSVs. Dates are shifted into 2026.
-- **Conversations:** emails, call transcripts and WhatsApp messages generated to fit that opportunity. All people
-  are fictional.
-
-`python backend/build_deal.py` downloads the dataset and writes the import file `backend/sample_data/acme_import.json`.
-That file is read only by `sample_connector.py`, which stands in for real CRM / Gmail / WhatsApp connectors: it
-**imports into Hindsight** (UI buttons *+ Next* / *Import all*, or `python seed.py`). The agent never reads it.
+- **Acme Corporation:** real rows from the [Maven Analytics CRM Sales Opportunities](https://mavenanalytics.io/data-playground)
+  dataset (opportunity `S3W6Q07M`, dates shifted into 2026) plus generated emails, calls and WhatsApp messages.
+- **Brightline Logistics, Globex Systems:** generated. All people and companies are fictional.
 
 ## Run locally
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r backend/requirements.txt   # macOS/Linux: .venv/bin/pip
+cp backend/.env.example .env              # repo root; fill in the keys (see Environment)
 cd backend
-cp .env.example .env            # then set HINDSIGHT_API_KEY
-../.venv/Scripts/python seed.py --reset                  # optional: fresh bank + import the sample deal
+../.venv/Scripts/python seed_demo.py      # demo logins + customers + interactions (uses Groq + Hindsight credits)
 ../.venv/Scripts/python -m uvicorn main:app --reload     # http://localhost:8000
-../.venv/Scripts/python test_agent.py                    # evidence gate checks, no key needed
+../.venv/Scripts/python test_memory_agent.py             # offline tests, no keys needed
 ```
 
 ```bash
 cd frontend
 npm install
-npm run dev                     # http://localhost:5173, uses VITE_API_URL from .env.local
+echo VITE_API_URL=http://localhost:8000 > .env.local
+npm run dev                               # http://localhost:5173
+npm run gen:api                           # after changing backend contracts: regenerate src/api-types.ts
 ```
+
+Demo logins (password = `DEMO_PASSWORD` from `.env`): `kami@clarity.example` (Acme, Globex),
+`rahul@clarity.example` (Brightline), `admin@clarity.example` (all customers + Settings).
 
 ## Environment
 
-| Where | File | Variable | Value |
-|---|---|---|---|
-| Backend, local | `backend/.env` (gitignored) | `HINDSIGHT_API_KEY` | your Hindsight Cloud key |
-| | | `GROQ_API_KEY` | your Groq key |
-| | | `HINDSIGHT_BANK` | `sales-memory` |
-| | | `CLIENT_URL` | deployed frontend URL(s), comma-separated (CORS). Localhost is always allowed |
-| | | `DEMO_KEY` | optional password so strangers can't spend credits |
-| Frontend, local | `frontend/.env.local` (gitignored) | `VITE_API_URL` | `http://localhost:8000` |
-| Frontend, prod | `frontend/.env.production` | `VITE_API_URL` | deployed backend URL |
+| Variable | Where | Value |
+|---|---|---|
+| `HINDSIGHT_API_KEY` | backend | Hindsight Cloud key |
+| `GROQ_API_KEY`, `GROQ_MODEL` | backend | Groq key; `openai/gpt-oss-120b` |
+| `MONGODB_URI`, `MONGODB_DB` | backend | Atlas connection string and database name |
+| `JWT_SECRET` | backend | random string that signs login tokens |
+| `CLIENT_URL` | backend | deployed frontend URL(s), comma-separated (CORS); localhost is always allowed |
+| `DEMO_PASSWORD` | local only | password `seed_demo.py` gives the demo logins |
+| `VITE_API_URL` | frontend | backend URL (`.env.local` for dev, `.env.production` for Vercel) |
 
-## Deploy (Vercel, two projects from this repo)
+## Deploy
 
-1. **Backend:** New Project → this repo → Root Directory `backend` (FastAPI is detected from `main.py`).
-   Set `HINDSIGHT_API_KEY`, `GROQ_API_KEY`, `HINDSIGHT_BANK` and optionally `DEMO_KEY` (`CLIENT_URL` defaults to the
-   deployed frontend URL).
-2. **Frontend:** New Project → this repo → Root Directory `frontend` (Vite is detected).
-   Put the backend URL in `frontend/.env.production` (or set `VITE_API_URL` in Vercel).
+Pushing to `main` deploys both Vercel projects (Root Directory `backend` and `frontend`). The backend project needs
+every backend variable above, and MongoDB Atlas must accept connections from Vercel (Network Access).
 
-## Demo (60 seconds)
+Limits that shape the design: Vercel request bodies are capped at 4.5 MB (uploads over 4 MB are refused; long call
+recordings go in as a URL, which Groq fetches itself), and functions run at most 300 s (`vercel.json`).
 
-1. Reset memory, click **+ Next** once (the CRM record) and ask *"I have a call with Acme tomorrow. What should I focus on?"* Also try it with memory off: generic.
-2. Click **+ Next** a few times and ask again. The answer now knows the pain point and the account history.
-3. **Remember all** and ask again. It flags the overdue security questionnaire, the finance controller's price
-   pushback against Nexbyte, and the 30 September budget deadline, each with sources.
-4. Paste a new email (e.g. Priya approving the questionnaire) or record the outcome (*"Sent the questionnaire; Priya approved"*) and ask again. The advice moves on.
+## Demo (2 minutes)
 
-5. Click **Prepare my call**: insights, risks, stakeholder plays, objection handling and a script, each line with
-   its sources; open "🧠 Agent memory work" to show what it recalled.
+1. Log in as Kami, open **Globex** (only two items in memory) and ask *"First call with Lena and Omar. How do I win
+   this?"* with **Discovery** + **ROI for finance**. The brief already carries lessons learned on Acme and Brightline
+   (security docs early, multi-year cost comparison), each linked to the lesson.
+2. Upload a WhatsApp export where security approves and finance accepts bundled support, linked to that brief.
+   The playbook gains a `confirmed_outcome` lesson.
+3. Open **Acme** and ask about Michael's 10 % discount with **Negotiation** + **Price objection**: the brief uses the
+   bundled-support lesson, and every point links to its email, call or lesson.
+4. As admin, change the main prompt in **Settings** and ask again.
 
-**Credits:** each remembered message costs ~2.4k tokens of retain (~$0.03); a profile refresh is one reflect call
-(~$0.05); agent answers use Hindsight recall (cheap) plus Groq.
+**Credits:** each remembered item costs roughly $0.02–0.05 of Hindsight retain; briefs use cheap recall plus Groq.
