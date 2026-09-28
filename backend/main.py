@@ -11,6 +11,7 @@ from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel, Field
 
 import agent
+import sales_agent
 import sample_connector
 
 app = FastAPI(title="Sales Memory Agent")
@@ -115,11 +116,37 @@ def profile():
     return _profile_cache[key]
 
 
+def llm(fn, *args, **kw):
+    """Run the Groq agent; turn model/rate-limit failures into a clear message instead of a stack trace."""
+    try:
+        return fn(*args, **kw)
+    except KeyError as e:
+        raise HTTPException(503, f"Server missing config {e}; set GROQ_API_KEY and HINDSIGHT_API_KEY")
+    except Exception as e:
+        subs = [x for g in getattr(e, "exceptions", [e]) for x in getattr(g, "exceptions", [g])]
+        if any("rate_limit" in str(x) or "413" in str(x) or "429" in str(x) or "over capacity" in str(x) for x in subs):
+            raise HTTPException(429, "The LLM (Groq) is at its rate limit. Wait a minute and try again.")
+        raise HTTPException(502, f"Agent error: {str(subs[0])[:200]}")
+
+
 @app.post("/api/chat", dependencies=[Depends(demo_key)])
 def chat(body: Chat):
     known = {s["id"] for s in hs(agent.sources)}
-    answer, cited = hs(agent.chat, current_deal(), body.question, body.use_memory, known if body.use_memory else set())
-    return {"answer": answer, "sources": cited, "used_memory": body.use_memory, "memory_count": len(known)}
+    dl = current_deal()
+    answer, cited, trace = llm(sales_agent.ask, dl, body.question, set(known), body.use_memory)
+    return {"answer": answer, "sources": cited, "trace": trace, "used_memory": body.use_memory,
+            "memory_count": len(known)}
+
+
+class Prep(BaseModel):
+    goal: str = Field("", max_length=200)
+
+
+@app.post("/api/prep", dependencies=[Depends(demo_key)])
+def prep(body: Prep):
+    """Call prep: insights, risks, stakeholder plays, objection handling, a call script and a follow-up email."""
+    known = {s["id"] for s in hs(agent.sources)}
+    return llm(sales_agent.call_prep, current_deal(), known, body.goal)
 
 
 @app.post("/api/outcome", dependencies=[Depends(demo_key)])

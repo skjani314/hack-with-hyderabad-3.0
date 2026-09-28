@@ -1,8 +1,32 @@
 import { useCallback, useEffect, useState, type FormEvent, type ReactNode } from 'react'
 import {
-  addSource, ask, getDeal, getProfile, importSample, recordOutcome, resetMemory, sourceText,
-  type Channel, type DealResponse, type Profile, type Source,
+  addSource, ask, getDeal, getProfile, importSample, prepareCall, recordOutcome, resetMemory, sourceText,
+  type CallPrep, type Channel, type DealResponse, type Profile, type Source, type TraceStep,
 } from './api'
+
+const STEP_LABEL: Record<string, string> = {
+  list_sources: 'Listed conversations', recall: 'Recalled from Hindsight', recall_memory: 'Agent searched memory',
+  read_source: 'Agent read message', save_note: 'Agent saved note',
+}
+
+/** What the agent did with memory for one answer: shown so judges and users can see memory at work. */
+function MemoryTrace({ steps }: { steps: TraceStep[] }) {
+  if (!steps.length) return null
+  return (
+    <details className="mt-2 text-[11px] text-slate-500">
+      <summary className="cursor-pointer select-none font-medium text-violet-600 dark:text-violet-400">
+        🧠 Agent memory work · {steps.length} steps
+      </summary>
+      <ol className="mt-1 space-y-0.5 border-l-2 border-violet-200 pl-2 dark:border-violet-900">
+        {steps.map((s, k) => (
+          <li key={k}>
+            <b>{STEP_LABEL[s.step] ?? s.step}</b>{s.detail && <>: <i>"{s.detail}"</i></>}{s.result && <span className="text-slate-400"> → {s.result}</span>}
+          </li>
+        ))}
+      </ol>
+    </details>
+  )
+}
 
 const CHANNEL: Record<Channel, { label: string; cls: string; icon: string }> = {
   crm: { label: 'CRM', cls: 'bg-sky-100 text-sky-700 dark:bg-sky-950 dark:text-sky-300', icon: '▦' },
@@ -77,7 +101,10 @@ export default function App() {
             <Chat memoryCount={deal.memory_count} ready={!!info} onSource={setFocus} />
             {info && <OutcomeForm onSaved={afterMemoryChange} />}
           </div>
-          <DealProfile version={profileVersion} empty={deal.memory_count === 0} onSource={setFocus} />
+          <div className="flex min-w-0 flex-col gap-5">
+            {info && <CallPrepPanel onSource={setFocus} />}
+            <DealProfile version={profileVersion} empty={deal.memory_count === 0} onSource={setFocus} />
+          </div>
         </div>
       )}
       {info && <p className="mt-6 text-xs text-slate-400">{info.sources}</p>}
@@ -220,7 +247,7 @@ function AddSource({ onSaved }: { onSaved: () => Promise<void> }) {
   )
 }
 
-interface Msg { q: string; answer?: string; sources?: string[]; memory?: number; usedMemory: boolean; error?: string }
+interface Msg { q: string; answer?: string; sources?: string[]; trace?: TraceStep[]; memory?: number; usedMemory: boolean; error?: string }
 
 function Chat({ memoryCount, ready, onSource }: { memoryCount: number; ready: boolean; onSource: (id: string) => void }) {
   const [msgs, setMsgs] = useState<Msg[]>([])
@@ -235,7 +262,7 @@ function Chat({ memoryCount, ready, onSource }: { memoryCount: number; ready: bo
     setMsgs(m => [...m, { q: question, usedMemory: useMemory }])
     try {
       const r = await ask(question, useMemory)
-      setMsgs(m => m.map((x, k) => k === m.length - 1 ? { ...x, answer: r.answer, sources: r.sources, memory: r.memory_count } : x))
+      setMsgs(m => m.map((x, k) => k === m.length - 1 ? { ...x, answer: r.answer, sources: r.sources, trace: r.trace, memory: r.memory_count } : x))
     } catch (err) {
       setMsgs(m => m.map((x, k) => k === m.length - 1 ? { ...x, error: (err as Error).message } : x))
     } finally { setBusy(false) }
@@ -269,7 +296,7 @@ function Chat({ memoryCount, ready, onSource }: { memoryCount: number; ready: bo
             <div className="ml-auto w-fit max-w-[85%] rounded-2xl rounded-br-sm bg-indigo-600 px-3 py-2 text-sm text-white">{m.q}</div>
             <div className="max-w-[95%] rounded-2xl rounded-bl-sm bg-slate-100 px-3 py-2 text-sm leading-relaxed dark:bg-slate-800">
               {m.error ? <span className="text-rose-600">{m.error}</span>
-                : m.answer === undefined ? <span className="animate-pulse text-slate-400">Recalling deal memory…</span>
+                : m.answer === undefined ? <span className="animate-pulse text-slate-400">{m.usedMemory ? 'Agent is recalling deal memory and thinking…' : 'Thinking without memory…'}</span>
                   : <>
                     <p className="whitespace-pre-wrap">{m.answer}</p>
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-[11px] text-slate-500">
@@ -278,6 +305,7 @@ function Chat({ memoryCount, ready, onSource }: { memoryCount: number; ready: bo
                       </span>
                       {!!m.sources?.length && <>sources <SourceChips ids={m.sources} onSource={onSource} /></>}
                     </div>
+                    <MemoryTrace steps={m.trace ?? []} />
                   </>}
             </div>
           </div>
@@ -343,6 +371,89 @@ function DealProfile({ version, empty, onSource }: { version: number; empty: boo
           <p className="border-t border-slate-200 pt-3 text-xs text-slate-400 dark:border-slate-800">
             Every item links to the message it came from.{dropped > 0 && ` ${dropped} unsourced claim${dropped > 1 ? 's were' : ' was'} removed.`}
           </p>
+        </div>
+      )}
+    </Panel>
+  )
+}
+
+function CallPrepPanel({ onSource }: { onSource: (id: string) => void }) {
+  const [goal, setGoal] = useState('')
+  const [prep, setPrep] = useState<CallPrep | null>(null)
+  const [busy, setBusy] = useState(false)
+  const [error, setError] = useState('')
+  const [copied, setCopied] = useState(false)
+
+  async function run(e: FormEvent) {
+    e.preventDefault()
+    setBusy(true); setError('')
+    try { setPrep(await prepareCall(goal)) } catch (err) { setError((err as Error).message) }
+    finally { setBusy(false) }
+  }
+
+  async function copyEmail() {
+    if (!prep) return
+    try { await navigator.clipboard.writeText(prep.follow_up_email); setCopied(true); setTimeout(() => setCopied(false), 1500) }
+    catch { /* clipboard blocked: the text is still selectable */ }
+  }
+
+  const h = 'mb-1.5 mt-4 text-xs font-semibold uppercase tracking-wider text-slate-400'
+  return (
+    <Panel title="Call prep">
+      <form className="flex gap-2" onSubmit={run}>
+        <input className={input} placeholder="Goal for the call (optional), e.g. get the PO signed" value={goal} onChange={e => setGoal(e.target.value)} />
+        <button className={`${primary} whitespace-nowrap`} disabled={busy}>{busy ? 'Preparing…' : 'Prepare my call'}</button>
+      </form>
+      {busy && <p className="mt-3 animate-pulse text-sm text-violet-600">Agent is recalling 4 angles from Hindsight and writing your plan…</p>}
+      {error && <p className="mt-3 text-sm text-rose-600">{error}</p>}
+      {prep && !busy && (
+        <div className="text-sm leading-snug">
+          <p className="mt-4 rounded-lg bg-indigo-50 p-3 font-medium text-indigo-900 dark:bg-indigo-950/40 dark:text-indigo-200">{prep.summary}</p>
+
+          {prep.risks.length > 0 && <>
+            <h3 className={h}>Risks</h3>
+            <ul className="space-y-1.5">{prep.risks.map((r, k) => (
+              <li key={k} className="rounded-md border-l-2 border-rose-400 pl-2"><b>{r.text}</b> <span className="text-slate-500">{r.why_it_matters}</span> <SourceChips ids={r.sources} onSource={onSource} /></li>
+            ))}</ul>
+          </>}
+
+          <h3 className={h}>Key insights</h3>
+          <ul className="space-y-1.5">{prep.insights.map((r, k) => (
+            <li key={k}><b>{r.text}</b> <span className="text-slate-500">{r.why_it_matters}</span> <SourceChips ids={r.sources} onSource={onSource} /></li>
+          ))}</ul>
+
+          <h3 className={h}>Stakeholder plays</h3>
+          <ul className="space-y-1.5">{prep.stakeholders.map((s, k) => (
+            <li key={k}><b>{s.name}</b> <span className="text-slate-500">({s.role}, cares about {s.cares_about})</span>: {s.how_to_win_them} <SourceChips ids={s.sources} onSource={onSource} /></li>
+          ))}</ul>
+
+          <h3 className={h}>Objection handling</h3>
+          <ul className="space-y-2">{prep.objections.map((o, k) => (
+            <li key={k}>
+              <div><b>"{o.objection}"</b> <span className="text-slate-500">({o.raised_by})</span> <SourceChips ids={o.sources} onSource={onSource} /></div>
+              <div className="mt-0.5 rounded-md bg-emerald-50 px-2 py-1 text-emerald-900 dark:bg-emerald-950/40 dark:text-emerald-200">→ {o.response}</div>
+            </li>
+          ))}</ul>
+
+          <h3 className={h}>Call script</h3>
+          <ol className="space-y-1.5">{prep.call_script.map((l, k) => (
+            <li key={k} className="flex gap-2">
+              <span className="w-20 shrink-0 text-xs font-semibold uppercase text-violet-600 dark:text-violet-400">{l.stage}</span>
+              <span>"{l.say}" <SourceChips ids={l.sources} onSource={onSource} /></span>
+            </li>
+          ))}</ol>
+
+          <h3 className={h}>Next steps</h3>
+          <ul className="list-disc space-y-0.5 pl-5">{prep.next_steps.map((n, k) => <li key={k}>{n}</li>)}</ul>
+
+          <div className="mt-4 flex items-center justify-between">
+            <h3 className="text-xs font-semibold uppercase tracking-wider text-slate-400">Follow-up email · draft, review before sending</h3>
+            <button type="button" className="text-xs text-indigo-600 hover:underline" onClick={copyEmail}>{copied ? 'Copied ✓' : 'Copy'}</button>
+          </div>
+          <p className="mt-1 whitespace-pre-wrap rounded-md bg-slate-50 p-2 text-xs dark:bg-slate-800/60">{prep.follow_up_email}</p>
+
+          <MemoryTrace steps={prep.trace} />
+          {prep.dropped > 0 && <p className="mt-1 text-[11px] text-slate-400">{prep.dropped} unsourced item{prep.dropped > 1 ? 's' : ''} removed by the evidence gate.</p>}
         </div>
       )}
     </Panel>

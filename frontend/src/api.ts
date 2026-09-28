@@ -38,11 +38,32 @@ export interface Profile {
   pricing: Sourced<{ text: string }>[]
 }
 
+/** One thing the agent did with memory: a prefetch recall, or a tool it chose to call. */
+export interface TraceStep {
+  step: string
+  detail: string
+  result?: string
+}
+
 export interface ChatAnswer {
   answer: string
   sources: string[]
+  trace: TraceStep[]
   used_memory: boolean
   memory_count: number
+}
+
+export interface CallPrep {
+  summary: string
+  insights: Sourced<{ text: string; why_it_matters: string }>[]
+  risks: Sourced<{ text: string; why_it_matters: string }>[]
+  stakeholders: Sourced<{ name: string; role: string; cares_about: string; how_to_win_them: string }>[]
+  objections: Sourced<{ objection: string; raised_by: string; response: string }>[]
+  call_script: Sourced<{ stage: string; say: string }>[]
+  next_steps: string[]
+  follow_up_email: string
+  dropped: number
+  trace: TraceStep[]
 }
 
 const BASE = (import.meta.env.VITE_API_URL ?? '').replace(/\/$/, '')
@@ -74,6 +95,7 @@ export const addSource = (channel: Channel, title: string, content: string, peop
 export const importSample = (mode: 'next' | 'all') => call<{ remembered: string[] }>('/api/import', 'POST', { mode })
 export const getProfile = () => call<{ profile: Profile | null; dropped: number }>('/api/profile')
 export const ask = (question: string, use_memory: boolean) => call<ChatAnswer>('/api/chat', 'POST', { question, use_memory })
+export const prepareCall = (goal: string) => call<CallPrep>('/api/prep', 'POST', { goal })
 export const recordOutcome = (summary: string, result: string, next_step: string) =>
   call<{ remembered: string }>('/api/outcome', 'POST', { summary, result, next_step })
 export const resetMemory = () => call<{ reset: boolean }>('/api/memory', 'DELETE')

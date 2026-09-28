@@ -17,12 +17,28 @@ the `sales-memory` bank; the API reads them back from Hindsight on every request
 | Remember a conversation (paste, connector import, or outcome) | `retain` with the source id, channel, date and a deal tag. The bank is configured with sales-specific extraction instructions (`retain_custom_instructions`). |
 | Show what memory holds | `list_documents` / `get_document` (original text) |
 | Build the deal profile | `reflect` with a JSON response schema over the deal's memories |
-| Answer a question | `reflect` scoped to the deal tag, citing source ids |
-| Memory off (demo "before") | the same `reflect`, scoped to a tag no memory has, so the answer is generic |
+| Answer a question / prepare a call | the agent: `recall` prefetch + recall/read tools (below) |
 | Record an outcome | `retain` as a new `OUT-xx` memory; later answers use it |
 
 **Evidence gate (ours, not Hindsight's):** every profile item and answer citation must point to a message that is
 actually in memory. Anything else is removed, and the UI says how many unsourced claims were dropped.
+
+## The agent
+
+A **Groq LLM** (`openai/gpt-oss-120b`, falling back to `qwen/qwen3.8-27b` and `openai/gpt-oss-20b`) built with
+**[Pydantic AI](https://ai.pydantic.dev/)**, one of Hindsight's officially integrated agent frameworks.
+
+- **Why an LLM:** Hindsight recall returns separate facts. Turning them into a prioritised plan and a natural talk
+  track for each stakeholder is reasoning and writing.
+- **Memory prefetch:** before the LLM runs, the relevant facts are recalled from Hindsight (and the conversation list
+  is loaded), so the agent usually answers in one step. This keeps a run inside Groq's free-tier token limits.
+- **Tools the agent can choose:** `recall_memory` (source-aware: every fact keeps its `[EM-02]` id), `read_source`
+  (original message text), `save_note` (when the salesperson says "remember that…"). The stock Hindsight tool drops
+  source ids, which the evidence gate needs, so these are built on the Hindsight client.
+- **Typed outputs:** chat answers, and a **call prep** with insights, risks, stakeholder plays, objection handling,
+  a call script, next steps and a follow-up email.
+- **Memory trace:** every answer shows what the agent recalled and read ("🧠 Agent memory work").
+- **Memory off** (demo "before"): the same LLM with no memory at all, so the answer is generic.
 
 ## Data
 
@@ -59,6 +75,7 @@ npm run dev                     # http://localhost:5173, uses VITE_API_URL from 
 | Where | File | Variable | Value |
 |---|---|---|---|
 | Backend, local | `backend/.env` (gitignored) | `HINDSIGHT_API_KEY` | your Hindsight Cloud key |
+| | | `GROQ_API_KEY` | your Groq key |
 | | | `HINDSIGHT_BANK` | `sales-memory` |
 | | | `CLIENT_URL` | deployed frontend URL(s), comma-separated (CORS). Localhost is always allowed |
 | | | `DEMO_KEY` | optional password so strangers can't spend credits |
@@ -68,7 +85,8 @@ npm run dev                     # http://localhost:5173, uses VITE_API_URL from 
 ## Deploy (Vercel, two projects from this repo)
 
 1. **Backend:** New Project → this repo → Root Directory `backend` (FastAPI is detected from `main.py`).
-   Set `HINDSIGHT_API_KEY`, `HINDSIGHT_BANK`, `CLIENT_URL` (the frontend URL) and optionally `DEMO_KEY`.
+   Set `HINDSIGHT_API_KEY`, `GROQ_API_KEY`, `HINDSIGHT_BANK` and optionally `DEMO_KEY` (`CLIENT_URL` defaults to the
+   deployed frontend URL).
 2. **Frontend:** New Project → this repo → Root Directory `frontend` (Vite is detected).
    Put the backend URL in `frontend/.env.production` (or set `VITE_API_URL` in Vercel).
 
@@ -80,5 +98,8 @@ npm run dev                     # http://localhost:5173, uses VITE_API_URL from 
    pushback against Nexbyte, and the 30 September budget deadline, each with sources.
 4. Paste a new email (e.g. Priya approving the questionnaire) or record the outcome (*"Sent the questionnaire; Priya approved"*) and ask again. The advice moves on.
 
-**Credits:** each remembered message costs ~2.4k tokens of retain (~$0.03); each question or profile refresh is one
-reflect call (~$0.05).
+5. Click **Prepare my call**: insights, risks, stakeholder plays, objection handling and a script, each line with
+   its sources; open "🧠 Agent memory work" to show what it recalled.
+
+**Credits:** each remembered message costs ~2.4k tokens of retain (~$0.03); a profile refresh is one reflect call
+(~$0.05); agent answers use Hindsight recall (cheap) plus Groq.

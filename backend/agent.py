@@ -108,7 +108,7 @@ def next_id(channel, existing):
     return f"{p}-{max(nums, default=0) + 1:02d}"
 
 
-IDS = re.compile(r"\[([A-Z]+-\d+|DEAL)\]")
+IDS = re.compile(r"\[([A-Z]+-\d+|DEAL|\?)\]")  # [?]: a placeholder a model may copy, never a real source
 
 
 def gate_profile(profile, known):
@@ -129,7 +129,8 @@ def gate_profile(profile, known):
 def gate_answer(answer, sources, known):
     """Remove citations to messages that are not in memory, from both the list and the text."""
     real = sorted({s.strip("[] ") for s in sources} & known)
-    text = IDS.sub(lambda m: m.group(0) if m.group(1) in known else "", answer)
+    text = re.sub(r"\[(?:summary|source|memory)[^\]]*\]", "", answer, flags=re.I)  # made-up citation formats
+    text = IDS.sub(lambda m: m.group(0) if m.group(1) in known else "", text)
     cited = set(IDS.findall(text))
     return re.sub(r"\s{2,}", " ", text).strip(), sorted(set(real) | cited)
 
@@ -153,8 +154,34 @@ def retain(items):
     client().retain_batch(bank_id=BANK, items=items)
 
 
+def source_row(d):
+    """One Hindsight document -> the source card the UI and agent see."""
+    d = d if isinstance(d, dict) else d.to_dict()
+    md = d.get("document_metadata") or {}
+    return dict(id=d["id"], channel=md.get("channel", "note"), date=md.get("date", ""),
+                title=md.get("title", d["id"]), people=md.get("from") or md.get("participants"),
+                memories=d.get("memory_unit_count"))
+
+
+def sort_sources(rows):
+    return sorted(rows, key=lambda s: (s["id"] != DEAL_DOC, s["date"]))
+
+
+def format_facts(results):
+    """Recall results -> '[EM-02] 2026-08-16 fact' lines, so every fact carries its citeable source id."""
+    lines, seen = [], set()
+    for r in results:
+        if r.text in seen:
+            continue
+        seen.add(r.text)
+        when = str(r.occurred_start or r.mentioned_at or "")[:10]
+        # consolidated observations have no single source document: listed without an id, so they can't be cited
+        lines.append(f"[{r.document_id}] {when} {r.text}" if r.document_id else f"- {r.text}")
+    return lines
+
+
 def sources():
-    """Every document in the bank, newest metadata as stored at retain time."""
+    """Every document in the bank, with the metadata stored at retain time."""
     out, offset = [], 0
     while True:
         try:
@@ -163,14 +190,9 @@ def sources():
             if _not_found(e):
                 return []  # bank not created yet, or just reset: memory is empty
             raise
-        for d in page.items:
-            d = d if isinstance(d, dict) else d.to_dict()
-            md = d.get("document_metadata") or {}
-            out.append(dict(id=d["id"], channel=md.get("channel", "note"), date=md.get("date", ""),
-                            title=md.get("title", d["id"]), people=md.get("from") or md.get("participants"),
-                            memories=d.get("memory_unit_count")))
+        out += [source_row(d) for d in page.items]
         if len(page.items) < 100:
-            return sorted(out, key=lambda s: (s["id"] != DEAL_DOC, s["date"]))
+            return sort_sources(out)
         offset += 100
 
 
@@ -190,6 +212,13 @@ def deal():
     md = d.document_metadata or {}
     return {k: md.get(k, "") for k in ("deal_id", "customer", "industry", "product", "value", "stage",
                                         "salesperson", "sources")}
+
+
+def recall_facts(dl, query, budget="mid"):
+    """Hindsight recall scoped to the deal, keeping each fact's source id so the agent can cite it."""
+    res = client().recall(bank_id=BANK, query=query, tags=[deal_tag(dl)], tags_match="any_strict",
+                          budget=budget, max_tokens=4096)
+    return format_facts(res.results)
 
 
 def add_source(dl, channel, title, content, people="", date=None, known=None):
