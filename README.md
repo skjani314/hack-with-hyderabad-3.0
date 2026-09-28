@@ -1,57 +1,77 @@
-# Machine Never Miss
+# Sales Memory Agent
 
-AI maintenance agent that remembers machine near-misses and failures (via Hindsight) and escalates before a failure repeats.
+**Remembers the customer so the salesperson doesn't have to.**
+
+Sales conversations are scattered across CRM, email, calls and WhatsApp. This agent stores every conversation in
+[Hindsight](https://hindsight.vectorize.io/) memory, extracts what matters (pain points, objections, stakeholders,
+competitors, commitments, pricing), and answers the salesperson's questions from that memory, with every claim
+linked to the message it came from. Record a call outcome and the next answer uses it.
+
+## How Hindsight memory is used
+
+| Step | Hindsight operation |
+|---|---|
+| Remember a conversation | `retain` with the source id, channel, date and a deal tag. The bank is configured with sales-specific extraction instructions (`retain_custom_instructions`). |
+| Build the deal profile | `reflect` with a JSON response schema over the deal's memories |
+| Answer a question | `reflect` scoped to the deal tag, citing source ids |
+| Memory off (demo "before") | the same `reflect`, scoped to a tag no memory has, so the answer is generic |
+| Record an outcome | `retain` as a new `OUT-xx` memory; later answers use it |
+
+**Evidence gate (ours, not Hindsight's):** every profile item and answer citation must point to a message that is
+actually in memory. Anything else is removed, and the UI says how many unsourced claims were dropped.
 
 ## Data
 
-`data/raw/ai4i2020.csv` is the [AI4I 2020 Predictive Maintenance Dataset](https://archive.ics.uci.edu/dataset/601/ai4i+2020+predictive+maintenance+dataset) (S. Matzka, UCI, CC BY 4.0).
+- **CRM:** real rows from the [Maven Analytics CRM Sales Opportunities](https://mavenanalytics.io/data-playground)
+  dataset (a fictional B2B hardware company: 85 accounts, 8,800 opportunities). The deal is opportunity `S3W6Q07M`
+  (Acme Corporation, GTX Plus Pro); account facts, sales agent, manager and Acme's 58 closed won/lost deals come from
+  the CSVs. Dates are shifted into 2026.
+- **Conversations:** emails, call transcripts and WhatsApp messages generated to fit that opportunity. All people
+  are fictional.
 
-`python backend/build_experiences.py` turns it into `data/experiences.json`, which is seeded into Hindsight:
-
-- **failure**: rows the dataset labels as failed (heat dissipation, power, overstrain, tool wear, random)
-- **near_miss**: rows within ~10% of a documented failure rule that did not fail
-- **normal**: a sample of healthy rows
-
-Actions, outcomes and machine IDs are not in the dataset. They are filled in from the failure mode.
+`python backend/build_deal.py` downloads the dataset and writes `backend/acme_deal.json`.
 
 ## Run locally
 
 ```bash
 python -m venv .venv && .venv/Scripts/pip install -r backend/requirements.txt   # macOS/Linux: .venv/bin/pip
 cd backend
-# put your key in backend/.env (HINDSIGHT_API_KEY=...)
-../.venv/Scripts/python seed.py           # load 234 experiences + create 4 playbooks (~$5.5, once)
-../.venv/Scripts/python seed.py --check   # recall a known dangerous reading
-../.venv/Scripts/python -m uvicorn main:app --reload   # API on http://localhost:8000
-../.venv/Scripts/python test_agent.py     # decision logic check, no key needed
+cp .env.example .env            # then set HINDSIGHT_API_KEY
+../.venv/Scripts/python -m uvicorn main:app --reload     # http://localhost:8000
+../.venv/Scripts/python test_agent.py                    # evidence gate checks, no key needed
 ```
-
-Frontend (React + Vite + TypeScript + Tailwind), in a second terminal:
 
 ```bash
 cd frontend
 npm install
-npm run dev        # open http://localhost:5173 (/api is proxied to :8000)
+npm run dev                     # http://localhost:5173, uses VITE_API_URL from .env.local
 ```
 
-`USE_REFLECT=0` in `.env` skips Hindsight reflect ($0.05/call) while developing.
+## Environment
 
-## How it decides
+| Where | File | Variable | Value |
+|---|---|---|---|
+| Backend, local | `backend/.env` (gitignored) | `HINDSIGHT_API_KEY` | your Hindsight Cloud key |
+| | | `HINDSIGHT_BANK` | `sales-memory` |
+| | | `CLIENT_URL` | deployed frontend URL(s), comma-separated (CORS). Localhost is always allowed |
+| | | `DEMO_KEY` | optional password so strangers can't spend credits |
+| Frontend, local | `frontend/.env.local` (gitignored) | `VITE_API_URL` | `http://localhost:8000` |
+| Frontend, prod | `frontend/.env.production` | `VITE_API_URL` | deployed backend URL |
 
-1. **Recall**: the reading is described in words ("small temperature gap, low spindle speed") and sent to Hindsight recall.
-2. **Compare**: each recalled experience is compared to the current reading (`agent.SCALES`). Only close ones count.
-3. **Decide**: most similar cases failed or nearly failed → **ESCALATE**; some → **MONITOR**; none → **NORMAL**. No memory → never invents history.
-4. **Self-check**: the agent recalls its *own* graded past calls on similar readings. A past miss raises the level; repeated false alarms lower an escalation. The adjustment is shown with its reason.
-5. **Explain**: Hindsight reflect writes the "why", citing case ids.
-6. **Learn**: the engineer records the outcome. Two memories are retained: the outcome itself, and a self-review grading the agent's call in hindsight (caught / missed / false alarm / correct). The next similar reading uses both.
-7. **Playbooks**: one Hindsight mental model per failure pattern (heat, power, overstrain, tool wear). Each rewrites itself after new memories are processed (`refresh_after_consolidation`), starting with the latest lessons and the agent's own decision record.
+## Deploy (Vercel, two projects from this repo)
 
-Live-learned outcomes are recalled with a separate tag-scoped query, so the large seeded archive never crowds out the newest lessons.
+1. **Backend:** New Project → this repo → Root Directory `backend` (FastAPI is detected from `main.py`).
+   Set `HINDSIGHT_API_KEY`, `HINDSIGHT_BANK`, `CLIENT_URL` (the frontend URL) and optionally `DEMO_KEY`.
+2. **Frontend:** New Project → this repo → Root Directory `frontend` (Vite is detected).
+   Put the backend URL in `frontend/.env.production` (or set `VITE_API_URL` in Vercel).
 
-**Credits:** retain costs ~2.4k tokens (~$0.024) per memory, so seeding 234 experiences is ~$5.5. Each analysis is ~$0.05 with reflect; each recorded outcome retains 2 memories (~$0.05) and triggers one playbook refresh ($0.05).
+## Demo (60 seconds)
 
-## Deploy
+1. Reset memory. Ask *"I have a call with Acme tomorrow. What should I focus on?"* The answer is generic.
+2. Click **+ Next** a few times and ask again. The answer now knows the pain point and the account history.
+3. **Remember all** and ask again. It flags the overdue security questionnaire, the finance controller's price
+   pushback against Nexbyte, and the 30 September budget deadline, each with sources.
+4. Record the outcome (*"Sent the questionnaire; Priya approved"*) and ask again. The advice moves on.
 
-**Backend (Render):** New → Blueprint → pick this repo (`render.yaml`). Set `HINDSIGHT_API_KEY` and `DEMO_KEY` (a password so strangers can't spend your credits). The free tier sleeps: open it a minute before the demo.
-
-**Frontend (Vercel):** New Project → this repo → Root Directory `frontend` (Vite is auto-detected). `frontend/vercel.json` forwards `/api/*` to Render, so the browser only talks to Vercel and there is no CORS to configure. If your Render URL differs from `machine-never-miss.onrender.com`, change it in `vercel.json`.
+**Credits:** each remembered message costs ~2.4k tokens of retain (~$0.03); each question or profile refresh is one
+reflect call (~$0.05).

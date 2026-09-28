@@ -1,0 +1,117 @@
+{
+  "deal": {
+    "deal_id": "S3W6Q07M",
+    "customer": "Acme Corporation",
+    "product": "GTX Plus Pro",
+    "industry": "technology",
+    "value": "$5,482 list price",
+    "stage": "Engaging",
+    "salesperson": "Kami Bicknell (West office, manager Summer Sewald)",
+    "sources": "CRM records: Maven Analytics 'CRM Sales Opportunities' dataset (real rows, dates shifted to 2026). Emails, calls and WhatsApp: generated sample conversations. All people and companies are fictional."
+  },
+  "interactions": [
+    {
+      "id": "CRM-01",
+      "channel": "crm",
+      "date": "2026-07-04T10:00:00-05:00",
+      "title": "Account record",
+      "content": "CRM account record: Acme Corporation. Sector: technology. Established 1996. Annual revenue $1,100,040,000. Employees: 2,822. Headquarters: United States."
+    },
+    {
+      "id": "CRM-02",
+      "channel": "crm",
+      "date": "2026-07-31T10:00:00-05:00",
+      "title": "Account purchase history",
+      "content": "CRM account history for Acme Corporation (Jun 2025 to Jul 2026): 58 closed opportunities, 34 won and 24 lost, total won revenue $101,744. By product: GTX Basic 4 won / 6 lost; GTX Plus Basic 7 won / 4 lost; GTX Plus Pro 7 won / 2 lost; GTXPro 7 won / 6 lost; MG Advanced 5 won / 1 lost; MG Special 4 won / 5 lost. Most recent GTX Plus Pro opportunity: J3K9EXW0, Won, closed 2026-07-29."
+    },
+    {
+      "id": "CRM-03",
+      "channel": "crm",
+      "date": "2026-08-03T10:00:00-05:00",
+      "title": "Opportunity created",
+      "content": "CRM opportunity S3W6Q07M: Acme Corporation, product GTX Plus Pro (series GTX, list price $5,482). Owner: Kami Bicknell, manager Summer Sewald, West regional office. Stage: Engaging. Engaged 2026-08-03."
+    },
+    {
+      "id": "EM-01",
+      "channel": "email",
+      "date": "2026-08-04T10:00:00-05:00",
+      "title": "Dana: our simulation workloads are too slow",
+      "from": "Dana Whitfield <dana.whitfield@acme-corp.example>",
+      "to": "Kami Bicknell <kami@clarity-hw.example>",
+      "content": "Hi Kami, our hardware engineering team runs thermal and stress simulations overnight, and each run now takes 9 to 11 hours on our current servers. Engineers wait a full day for results, which is slowing our Q4 product launch. We've bought GTX Plus Pro from you before and the team liked it. Can we talk about another one for the simulation lab? We need it running before the launch freeze on 15 October. Thanks, Dana Whitfield, Engineering Manager, Acme Corporation."
+    },
+    {
+      "id": "CALL-01",
+      "channel": "call",
+      "date": "2026-08-07T10:00:00-05:00",
+      "title": "Discovery call (Dana, Sam)",
+      "participants": "Kami Bicknell; Dana Whitfield (Engineering Manager); Sam Keller (Procurement Lead)",
+      "content": "Call transcript (30 min).\nKami: What would success look like?\nDana: Simulation runs under 3 hours, so engineers get results the same day.\nSam: From procurement side, delivery time matters most. Last quarter a different supplier delivered 5 weeks late and we missed a milestone.\nKami: GTX Plus Pro ships in about 10 business days from order.\nSam: Also any purchase above 5,000 dollars needs sign-off from our finance controller, Michael Torres.\nDana: And it must fit our existing rack and power setup, no facility changes.\nKami: I will send the rack and power specs today."
+    },
+    {
+      "id": "WA-01",
+      "channel": "whatsapp",
+      "date": "2026-08-12T10:00:00-05:00",
+      "title": "Dana: finance wants the cost case",
+      "from": "Dana Whitfield",
+      "content": "Hi Kami, Michael from finance asked why we can't just add cloud compute instead. He wants a simple cost comparison, one page, before he approves anything above 5k."
+    },
+    {
+      "id": "EM-02",
+      "channel": "email",
+      "date": "2026-08-16T10:00:00-05:00",
+      "title": "Michael: price and competitor quote",
+      "from": "Michael Torres <michael.torres@acme-corp.example>",
+      "to": "Kami Bicknell <kami@clarity-hw.example>",
+      "content": "Kami, thanks for the cost note. The list price of $5,482 is higher than we expected. Nexbyte has quoted about 15% less for a similar server. I also need the 3-year cost including support, compared with renting cloud compute for the same workload. Please use our actual run hours, not generic benchmarks. Michael Torres, Finance Controller."
+    },
+    {
+      "id": "CALL-02",
+      "channel": "call",
+      "date": "2026-08-21T10:00:00-05:00",
+      "title": "IT security call (Priya)",
+      "participants": "Kami Bicknell; Priya Nair (IT Security Manager); Dana Whitfield",
+      "content": "Call transcript (35 min).\nPriya: Before anything connects to our lab network I need to know about firmware security. Secure boot? TPM?\nKami: Yes, both, and signed firmware updates.\nPriya: We manage devices through our central device management tool. It has to enrol there. And when hardware is retired, drives must be certified wiped.\nKami: We provide a certified drive-wipe service.\nPriya: Send me our 30-question hardware security questionnaire filled in. I cannot approve without it.\nKami: I will send it by 30 August."
+    },
+    {
+      "id": "WA-02",
+      "channel": "whatsapp",
+      "date": "2026-08-25T10:00:00-05:00",
+      "title": "Dana: Nexbyte trial feedback",
+      "from": "Dana Whitfield",
+      "content": "Kami, Nexbyte sent a trial unit. Honestly it throttled under our 6-hour thermal simulation, the run took longer than expected. My engineers prefer yours. But Michael still keeps pushing on price."
+    },
+    {
+      "id": "EM-03",
+      "channel": "email",
+      "date": "2026-08-28T10:00:00-05:00",
+      "title": "Kami: next steps and commitments",
+      "from": "Kami Bicknell <kami@clarity-hw.example>",
+      "to": "Dana Whitfield; Priya Nair; Michael Torres",
+      "content": "Hi all, thank you for this week. Next steps from our side: (1) completed security questionnaire to Priya by 30 August, (2) 3-year cost comparison against cloud compute using Acme's real run hours to Michael by 5 September, (3) confirm a delivery slot so the server is live before 15 October. Best, Kami Bicknell."
+    },
+    {
+      "id": "CRM-04",
+      "channel": "crm",
+      "date": "2026-09-01T10:00:00-05:00",
+      "title": "Opportunity update (next step, close target)",
+      "content": "CRM note on opportunity S3W6Q07M: next step - finance approval by Michael Torres after cost comparison. Competitor on deal: Nexbyte. Target close: 30 September 2026 (Acme quarter-end budget cut-off). Stage in CRM: Engaging."
+    },
+    {
+      "id": "CALL-03",
+      "channel": "call",
+      "date": "2026-09-09T10:00:00-05:00",
+      "title": "Pricing call (Michael, Dana)",
+      "participants": "Kami Bicknell; Michael Torres (Finance Controller); Dana Whitfield",
+      "content": "Call transcript (25 min).\nMichael: Your 3-year comparison shows the server pays for itself against cloud in about 14 months. That works. But Nexbyte is still cheaper.\nKami: Nexbyte's unit throttled in Dana's own simulation test, so the real run time was longer.\nMichael: Fair. If we also order the 3-year support plan, can you do 10% off?\nKami: I need to check with my manager, Summer Sewald. I will confirm by Friday.\nMichael: Budget closes at quarter end, 30 September. I need the final quote a week before."
+    },
+    {
+      "id": "WA-03",
+      "channel": "whatsapp",
+      "date": "2026-09-15T10:00:00-05:00",
+      "title": "Dana: IT still waiting",
+      "from": "Dana Whitfield",
+      "content": "Kami, quick heads up. Priya says she still has not received the security questionnaire. She's annoyed, she said IT will not approve the purchase without it. Can you send it today?"
+    }
+  ]
+}
