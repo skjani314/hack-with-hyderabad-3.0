@@ -378,7 +378,7 @@ function Ask({ customerId, onSource, onReport, empty }: { customerId: string; on
       )}
       {empty && !current && <p className="mt-3 text-xs text-slate-400">No customer memory yet: the brief will come from the company playbook only.</p>}
       <div className="mt-3"><ErrorText error={error} /></div>
-      {current && <ReportView request={current} pieces={pieces} onSource={onSource} />}
+      {current && <ReportView key={current.request_id} request={current} pieces={pieces} onSource={onSource} />}
       {history.length > 0 && (
         <details className="mt-4 text-sm">
           <summary className="cursor-pointer text-xs font-medium text-slate-500">Earlier briefs ({history.length})</summary>
