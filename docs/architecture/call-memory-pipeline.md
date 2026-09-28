@@ -173,7 +173,8 @@ later). Never lose the source because extraction failed.
 ## 3. Memory (Hindsight)
 
 Hindsight supports this directly: its docs describe *one bank per user* plus *a shared bank*, with the client
-querying both and merging.
+querying both and merging. Full layout (document ids, retain fields, tags, entity labels, observation scopes,
+cost): [`hindsight-memory-shape.md`](./hindsight-memory-shape.md).
 
 | Bank | id | Holds | Written when |
 |---|---|---|---|
