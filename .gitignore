@@ -3,3 +3,6 @@ __pycache__/
 .venv/
 node_modules/
 data/raw/
+
+# demo logins with passwords: shared privately, never committed (the repo is public)
+docs/CREDENTIALS.md

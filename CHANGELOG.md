@@ -6,6 +6,9 @@ Format follows [Keep a Changelog](https://keepachangelog.com/en/1.1.0/).
 ## [Unreleased]
 
 ### Added
+- **`docs/GUIDE.md`** — the complete guide for the submission writers: problem, what we built, how Hindsight is used,
+  every screen, every prompt (generated from the code), demo script, limits, cost, and a map to the judging criteria.
+  Demo passwords live in `docs/CREDENTIALS.md`, which is **gitignored** because the repo is public.
 - **The answer comes first.** Every brief says which section answers the question (`focus`: status, email, objection,
   stakeholders, call_prep, questions, risks, playbook; clear wording like "draft … email" decides in code). The UI shows
   the health bar, the direct answer and that section; everything else is under **More details**. An objection answer
