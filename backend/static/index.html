@@ -1,0 +1,164 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Machine Never Miss</title>
+<style>
+  :root { --bg:#f6f7f9; --card:#fff; --ink:#15181d; --mute:#667085; --line:#e4e7ec;
+          --normal:#12805c; --monitor:#b54708; --escalate:#c01048; --accent:#2e5bff; }
+  @media (prefers-color-scheme: dark) { :root { --bg:#0e1116; --card:#161b22; --ink:#e6e9ee; --mute:#8b95a5;
+          --line:#2a313c; --normal:#3ccb8f; --monitor:#f79009; --escalate:#f6517b; --accent:#6d8bff; } }
+  * { box-sizing:border-box } body { margin:0; background:var(--bg); color:var(--ink); font:15px/1.5 system-ui,sans-serif }
+  main { max-width:1100px; margin:auto; padding:24px 16px; display:grid; gap:16px; grid-template-columns:1fr 1fr }
+  header { grid-column:1/-1 } h1 { margin:0; font-size:22px } header p { margin:2px 0 0; color:var(--mute) }
+  section { background:var(--card); border:1px solid var(--line); border-radius:12px; padding:18px }
+  h2 { margin:0 0 12px; font-size:13px; letter-spacing:.06em; text-transform:uppercase; color:var(--mute) }
+  label { display:grid; grid-template-columns:1fr 120px; align-items:center; margin:6px 0; gap:8px }
+  input, select, textarea { font:inherit; padding:6px 8px; border:1px solid var(--line); border-radius:8px; background:var(--bg); color:var(--ink); width:100% }
+  button { font:inherit; padding:8px 14px; border-radius:8px; border:1px solid var(--line); background:var(--bg); color:var(--ink); cursor:pointer }
+  button.primary { background:var(--accent); border-color:var(--accent); color:#fff; font-weight:600 }
+  button:disabled { opacity:.5; cursor:wait }
+  .row { display:flex; gap:8px; flex-wrap:wrap; margin:10px 0 } .mute { color:var(--mute); font-size:13px }
+  .status { font-size:28px; font-weight:800 } .NORMAL{color:var(--normal)} .MONITOR{color:var(--monitor)} .ESCALATE{color:var(--escalate)}
+  .stats { display:grid; grid-template-columns:repeat(4,1fr); gap:8px; margin:12px 0 }
+  .stats div { border:1px solid var(--line); border-radius:8px; padding:8px } .stats b { display:block; font-size:20px }
+  .case { border-left:3px solid var(--line); padding:4px 10px; margin:8px 0 } .case.failed{border-color:var(--escalate)} .case.prevented_failure{border-color:var(--normal)}
+  .chips span { display:inline-block; padding:2px 8px; margin:2px; border-radius:99px; border:1px solid var(--line); font-size:13px }
+  .bars { display:flex; align-items:flex-end; gap:6px; height:140px; border-bottom:1px solid var(--line) }
+  .bar { flex:1; display:flex; flex-direction:column-reverse; min-width:0 } .bar i { display:block }
+  .f { background:var(--escalate) } .n { background:var(--monitor) } .l { background:var(--accent) }
+  .months { display:flex; gap:6px } .months span { flex:1; text-align:center; font-size:11px; color:var(--mute) }
+  .wide { grid-column:1/-1 } .err { color:var(--escalate) }
+  @media (max-width:760px) { main { grid-template-columns:1fr } .stats { grid-template-columns:repeat(2,1fr) } }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <h1>Machine Never Miss</h1>
+    <p>Remembers what almost went wrong, and escalates before it happens again. Memory by Hindsight.</p>
+  </header>
+
+  <section>
+    <h2>1 · Current sensor state</h2>
+    <div class="row">
+      <button data-preset="heat">Heat pattern</button>
+      <button data-preset="tool">Worn tool</button>
+      <button data-preset="healthy">Healthy</button>
+    </div>
+    <form id="reading">
+      <label>Machine <input name="machine_id" value="M-103" required></label>
+      <label>Variant <select name="variant"><option>L</option><option selected>M</option><option>H</option></select></label>
+      <label>Air temperature (K) <input name="air_temperature_k" type="number" step="0.1" required></label>
+      <label>Process temperature (K) <input name="process_temperature_k" type="number" step="0.1" required></label>
+      <label>Spindle speed (rpm) <input name="rpm" type="number" required></label>
+      <label>Torque (Nm) <input name="torque_nm" type="number" step="0.1" required></label>
+      <label>Tool wear (min) <input name="tool_wear_min" type="number" required></label>
+      <label>Use memory <input name="use_memory" type="checkbox" checked style="width:auto"></label>
+      <div class="row"><button class="primary" id="go">Analyze</button><span id="msg" class="mute"></span></div>
+    </form>
+  </section>
+
+  <section id="decision">
+    <h2>2 · Agent decision</h2>
+    <p class="mute">Pick a preset and press Analyze.</p>
+  </section>
+
+  <section id="why" class="wide" hidden>
+    <h2>3 · Why? Historical evidence</h2>
+    <div id="evidence"></div>
+    <h2 style="margin-top:18px">Record what happened</h2>
+    <form id="outcome" class="row">
+      <input name="action" placeholder="Action taken, e.g. inspected bearing, reduced load" required style="flex:2">
+      <select name="outcome" style="flex:1">
+        <option value="prevented_failure">Failure prevented</option>
+        <option value="failed">Machine failed</option>
+        <option value="normal">Nothing happened</option>
+      </select>
+      <input name="notes" placeholder="Notes (optional)" style="flex:1">
+      <button class="primary">Save to memory</button>
+    </form>
+    <p id="saved" class="mute"></p>
+  </section>
+
+  <section class="wide">
+    <h2>4 · Memory evolution</h2>
+    <div class="bars" id="bars"></div><div class="months" id="months"></div>
+    <p class="mute"><span class="chips"><span style="border-color:var(--escalate)">failures</span><span style="border-color:var(--monitor)">near-misses</span><span style="border-color:var(--accent)">learned live</span></span></p>
+  </section>
+</main>
+
+<script>
+const PRESETS = {
+  heat:    { machine_id:"M-103", variant:"M", air_temperature_k:300.8, process_temperature_k:309.4, rpm:1340, torque_nm:55, tool_wear_min:113 },
+  tool:    { machine_id:"M-102", variant:"L", air_temperature_k:299.0, process_temperature_k:309.8, rpm:1450, torque_nm:52, tool_wear_min:205 },
+  healthy: { machine_id:"M-101", variant:"M", air_temperature_k:300.0, process_temperature_k:311.0, rpm:1550, torque_nm:40, tool_wear_min:60 },
+};
+const $ = s => document.querySelector(s);
+const esc = s => String(s ?? "").replace(/[&<>"]/g, c => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c]));
+let last = null;
+
+function demoKey() { try { return localStorage.getItem("demoKey") || ""; } catch { return ""; } }
+async function api(path, body) {
+  const r = await fetch(path, { method: body ? "POST" : "GET",
+    headers: { "Content-Type": "application/json", "X-Demo-Key": demoKey() }, body: body && JSON.stringify(body) });
+  if (r.status === 401) { const k = prompt("Demo key"); try { localStorage.setItem("demoKey", k || ""); } catch {} throw new Error("Demo key needed, try again"); }
+  const j = await r.json();
+  if (!r.ok) throw new Error(Array.isArray(j.detail) ? "Insufficient or invalid sensor data: " + j.detail.map(d => d.loc.at(-1)).join(", ") : j.detail);
+  return j;
+}
+
+function fill(p) { for (const [k, v] of Object.entries(p)) $("#reading").elements[k].value = v; }
+document.querySelectorAll("[data-preset]").forEach(b => b.onclick = () => fill(PRESETS[b.dataset.preset]));
+fill(PRESETS.heat);
+
+$("#reading").onsubmit = async e => {
+  e.preventDefault();
+  const f = e.target.elements, body = { use_memory: f.use_memory.checked };
+  for (const k of ["machine_id","variant"]) body[k] = f[k].value;
+  for (const k of ["air_temperature_k","process_temperature_k","rpm","torque_nm","tool_wear_min"]) body[k] = f[k].value === "" ? null : Number(f[k].value);
+  $("#go").disabled = true; $("#msg").textContent = "Recalling memory…";
+  try { last = await api("/api/analyze", body); render(last); $("#msg").textContent = ""; }
+  catch (err) { $("#msg").innerHTML = `<span class="err">${esc(err.message)}</span>`; }
+  finally { $("#go").disabled = false; }
+};
+
+function render(d) {
+  $("#decision").innerHTML = `<h2>2 · Agent decision</h2>
+    <div class="status ${d.status}">${d.status}</div>
+    <div class="stats">
+      <div><b>${d.pattern_label}</b><span class="mute">pattern strength ${d.pattern_strength}</span></div>
+      <div><b>${d.historical_matches}</b><span class="mute">similar cases</span></div>
+      <div><b>${d.similar_failures}</b><span class="mute">failed</span></div>
+      <div><b>${d.similar_prevented_events}</b><span class="mute">prevented</span></div>
+    </div>
+    <p><b>${esc(d.recommendation)}</b></p><p>${esc(d.reason)}</p>
+    <div class="chips">${d.recurring_signals.map(s => `<span>${esc(s)}</span>`).join("") || '<span>no elevated signals</span>'}</div>`;
+  $("#why").hidden = false; $("#saved").textContent = "";
+  $("#evidence").innerHTML = d.evidence.length ? d.evidence.map(e => `<div class="case ${e.outcome}">
+      <b>${esc(e.experience_id)}</b> <span class="mute">${esc(e.timestamp.slice(0,10))} · ${esc(e.event_type)} · distance ${e.distance}</span><br>
+      ${esc(e.text)}</div>`).join("") : '<p class="mute">No similar historical experience. The agent is not inventing one.</p>';
+}
+
+$("#outcome").onsubmit = async e => {
+  e.preventDefault();
+  if (!last) return;
+  const f = e.target.elements;
+  try {
+    const r = await api("/api/outcome", { event_id: last.event_id, action: f.action.value, outcome: f.outcome.value, notes: f.notes.value });
+    $("#saved").textContent = `Saved as ${r.retained}. Analyze a similar reading to see it used.`; last = null; e.target.reset(); timeline();
+  } catch (err) { $("#saved").innerHTML = `<span class="err">${esc(err.message)}</span>`; }
+};
+
+async function timeline() {
+  const t = await api("/api/timeline"), max = Math.max(...t.months.map(m => (m.failure||0) + (m.near_miss||0)), 1);
+  $("#bars").innerHTML = t.months.map(m => `<div class="bar" title="${m.month}: ${m.failure||0} failures, ${m.near_miss||0} near-misses">
+    <i class="f" style="height:${(m.failure||0)/max*130}px"></i><i class="n" style="height:${(m.near_miss||0)/max*130}px"></i></div>`).join("")
+    + (t.learned.length ? `<div class="bar" title="learned live"><i class="l" style="height:${Math.max(6, t.learned.length/max*130)}px"></i></div>` : "");
+  $("#months").innerHTML = t.months.map(m => `<span>${m.month.slice(5)}</span>`).join("") + (t.learned.length ? "<span>live</span>" : "");
+}
+timeline();
+</script>
+</body>
+</html>

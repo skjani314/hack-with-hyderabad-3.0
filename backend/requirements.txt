@@ -1,0 +1,4 @@
+fastapi
+uvicorn[standard]
+hindsight-client==0.10.1
+python-dotenv
