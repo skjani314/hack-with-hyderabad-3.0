@@ -10,6 +10,24 @@ customer, adds what happened (a call recording, a transcript, an email, a WhatsA
 and asks for a brief before the next call. The agent answers from **two memories**: everything this customer said,
 and everything the company has learned from all its other customers. Every claim links to the message it came from.
 
+## At a glance
+
+![Sales Memory Agent: calls, emails and chats go into two Hindsight memories, the brief cites both, outcomes teach the playbook](docs/images/overview.png)
+
+![Beyond a chatbot: two memories, learns across customers, learns from outcomes, deal ledger, every claim sourced, private by design](docs/images/beyond-a-chatbot.png)
+
+### How it works, end to end
+
+Purple is Hindsight memory. Blue is our agent. Green is how it learns. Yellow is the salesperson.
+
+![How it works end to end: inputs, preview, Groq extraction, Hindsight banks and deal ledger, recall, brief, evidence gate, outcome, playbook](docs/images/how-it-works-end-to-end.png)
+
+### One lesson, three customers
+
+What the demo data shows: a move that won one deal reaches the next customer on day one.
+
+![One lesson, three customers: Brightline and Acme wins confirm a lesson that Globex's first brief already recommends](docs/images/one-lesson-three-customers.png)
+
 ## How Hindsight memory is used
 
 ```
